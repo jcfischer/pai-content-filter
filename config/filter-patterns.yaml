@@ -1,0 +1,194 @@
+version: "1.0.0"
+
+patterns:
+  # === INJECTION PATTERNS (PI-xxx) ===
+
+  - id: PI-001
+    name: system_prompt_override
+    category: injection
+    pattern: '(?:^|\s)(?:you\s+are\b|ignore\s+(?:previous|all|above|prior)\s+instructions?|new\s+instructions?|disregard\s+(?:previous|all|above|prior)|forget\s+(?:previous|all|everything))'
+    severity: block
+    description: System prompt override attempts
+
+  - id: PI-002
+    name: role_play_trigger
+    category: injection
+    pattern: '(?:^|\s)(?:act\s+as\b|pretend\s+(?:you\s+are|to\s+be)|your\s+role\s+is\s+now|you\s+are\s+now\s+a|from\s+now\s+on\s+you\s+are|imagine\s+you\s+are)'
+    severity: block
+    description: Role-play trigger attempts to change agent identity
+
+  - id: PI-003
+    name: context_manipulation
+    category: injection
+    pattern: '(?:\[INST\]|\<\|im_start\|>|<<SYS>>|###\s*(?:instruction|system)|<\|system\|>|<system>|<\/system>)'
+    severity: block
+    description: LLM context/delimiter manipulation tokens
+
+  - id: PI-004
+    name: multi_turn_injection
+    category: injection
+    pattern: '(?:in\s+the\s+next\s+message|when\s+(?:asked|prompted)\s+about|from\s+now\s+on|for\s+(?:all|every)\s+future|always\s+respond\s+with|remember\s+to\s+always)'
+    severity: block
+    description: Multi-turn injection attempting persistent behavior change
+
+  - id: PI-005
+    name: delimiter_injection
+    category: injection
+    pattern: '(?:---\s*\n\s*system|```\s*system|<\|endoftext\|>|<\|separator\|>|<\|end\|>)'
+    severity: block
+    description: Delimiter injection via markdown or special tokens
+
+  - id: PI-006
+    name: jailbreak_keywords
+    category: injection
+    pattern: '(?:(?:DAN|STAN|DUDE)\s+mode|do\s+anything\s+now|developer\s+mode|unlock(?:ed)?\s+mode|no\s+(?:restrictions?|limitations?|filters?|rules?)\s+mode)'
+    severity: block
+    description: Known jailbreak mode activation keywords
+
+  - id: PI-007
+    name: instruction_boundary
+    category: injection
+    pattern: '(?:end\s+of\s+(?:system|user)\s+(?:message|prompt|instructions?)|begin\s+(?:new|real)\s+(?:instructions?|prompt)|actual\s+(?:instructions?|task)\s+(?:below|follows?))'
+    severity: block
+    description: Attempts to insert fake instruction boundaries
+
+  - id: PI-008
+    name: output_manipulation
+    category: injection
+    pattern: '(?:do\s+not\s+(?:mention|reveal|disclose|show)|hide\s+(?:this|the\s+fact)|keep\s+(?:this|it)\s+secret|never\s+tell\s+(?:the\s+user|anyone))'
+    severity: block
+    description: Instructions to hide information from the user
+
+  - id: PI-009
+    name: authority_claim
+    category: injection
+    pattern: '(?:(?:I\s+am|this\s+is)\s+(?:your|the)\s+(?:admin|administrator|developer|creator|owner)|authorized\s+(?:override|access)|priority\s+(?:one|1)\s+(?:instruction|command|order))'
+    severity: block
+    description: False authority claims to elevate privilege
+
+  - id: PI-010
+    name: encoding_instruction
+    category: injection
+    pattern: '(?:(?:encode|decode|convert|translate)\s+(?:this|the\s+following|it)\s+(?:to|into|from)\s+(?:base64|hex|rot13|binary)|respond\s+(?:only\s+)?in\s+(?:base64|hex|code))'
+    severity: block
+    description: Instructions to use encoding to bypass filters
+
+  - id: PI-011
+    name: prompt_leak_request
+    category: injection
+    pattern: '(?:(?:show|reveal|print|output|repeat|display)\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?|rules?|guidelines?)|what\s+(?:are|were)\s+your\s+(?:instructions?|rules?))'
+    severity: review
+    description: Attempts to extract system prompt content
+
+  # === EXFILTRATION PATTERNS (EX-xxx) ===
+
+  - id: EX-001
+    name: direct_exfil_command
+    category: exfiltration
+    pattern: '(?:send\s+(?:this|it|the\s+(?:data|content|file|info))\s+to|write\s+(?:this|it)\s+to\s+(?:\/|~|http)|copy\s+(?:this|it)\s+to\s+(?:\/|~|http)|exfiltrate|upload\s+(?:this|it)\s+to)'
+    severity: block
+    description: Direct data exfiltration commands
+
+  - id: EX-002
+    name: path_traversal
+    category: exfiltration
+    pattern: '(?:\.\.\/?(?:\.\.\/?)+|~\/\.(?:claude|env|ssh|gnupg|aws|config)|\/etc\/(?:passwd|shadow)|USER\/|credentials?\.(?:json|yaml|yml|toml)|\.env(?:\.local)?(?:\s|$))'
+    severity: block
+    description: Path traversal and sensitive file access patterns
+
+  - id: EX-003
+    name: network_exfil
+    category: exfiltration
+    pattern: '(?:curl\s+(?:-[a-zA-Z]\s+)*(?:http|ftp)|wget\s+(?:http|ftp)|fetch\(\s*["\x27]http|nc\s+-[a-z]*\s+\d|ncat\s|(?:python|ruby|perl|node)\s+-e\s+.*(?:http|socket))'
+    severity: block
+    description: Network-based data exfiltration commands
+
+  - id: EX-004
+    name: environment_leak
+    category: exfiltration
+    pattern: '(?:(?:print|echo|cat|read|show|access|get)\s+(?:the\s+)?(?:env(?:ironment)?|API\s*key|secret|token|password|credential)|process\.env\[|os\.environ)'
+    severity: block
+    description: Environment variable and credential access attempts
+
+  - id: EX-005
+    name: clipboard_exfil
+    category: exfiltration
+    pattern: '(?:pbcopy|xclip|xsel|clip\.exe|Set-Clipboard|copy\s+to\s+clipboard)'
+    severity: block
+    description: Clipboard-based data exfiltration
+
+  # === TOOL INVOCATION PATTERNS (TI-xxx) ===
+
+  - id: TI-001
+    name: explicit_tool_call
+    category: tool_invocation
+    pattern: '(?:use\s+the\s+(?:bash|write|edit|read|glob|grep)\s+tool|run\s+(?:this\s+)?(?:command|script)|execute\s+(?:this|the\s+following)\s+(?:command|code|script))'
+    severity: block
+    description: Explicit requests to invoke Claude Code tools
+
+  - id: TI-002
+    name: code_execution
+    category: tool_invocation
+    pattern: '(?:\beval\s*\(|\bexec\s*\(|child_process|subprocess\.(?:run|call|Popen)|os\.system\s*\(|spawn\s*\(|execSync\s*\()'
+    severity: block
+    description: Code execution function calls
+
+  - id: TI-003
+    name: file_operations
+    category: tool_invocation
+    pattern: '(?:(?:write|create|delete|remove|modify|overwrite)\s+(?:the\s+)?file|rm\s+-(?:r|f|rf)\s|chmod\s+|chown\s+|mkfifo\s+|truncate\s+)'
+    severity: block
+    description: File system modification commands
+
+  - id: TI-004
+    name: mcp_tool_invocation
+    category: tool_invocation
+    pattern: '(?:(?:use|invoke|call|trigger)\s+(?:the\s+)?(?:email|calendar|tana|tado|finance)\s+(?:tool|mcp|server)|mcp_(?:server|tool)_)'
+    severity: block
+    description: Requests to invoke MCP tools
+
+  - id: TI-005
+    name: shell_command
+    category: tool_invocation
+    pattern: '(?:(?:run|execute)\s+(?:in\s+)?(?:bash|sh|zsh|shell|terminal)|(?:open|start|launch)\s+(?:a\s+)?(?:terminal|shell)|sh\s+-c\s+|bash\s+-c\s+|\/bin\/(?:sh|bash)\s)'
+    severity: block
+    description: Shell command execution requests
+
+  - id: TI-006
+    name: package_install
+    category: tool_invocation
+    pattern: '(?:(?:npm|pip|bun|yarn|brew|apt|apt-get|yum|cargo)\s+install\s|pip3?\s+install\s|gem\s+install\s|go\s+install\s)'
+    severity: block
+    description: Package installation commands
+
+encoding_rules:
+  - id: EN-001
+    type: base64
+    pattern: '(?:[A-Za-z0-9+\/]{21,}={0,2})'
+    description: Base64-encoded strings longer than 20 characters
+    min_length: 20
+
+  - id: EN-002
+    type: unicode
+    pattern: '(?:\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}){3,}'
+    description: Unicode or hex escape sequences (3+ consecutive)
+
+  - id: EN-003
+    type: hex
+    pattern: '(?:0x[0-9a-fA-F]{2}\s*){5,}'
+    description: Hex-encoded text blocks (5+ consecutive hex bytes)
+
+  - id: EN-004
+    type: url_encoded
+    pattern: '(?:%[0-9a-fA-F]{2}){4,}'
+    description: URL-encoded strings (4+ consecutive encoded chars, outside URLs)
+
+  - id: EN-005
+    type: html_entity
+    pattern: '(?:&#x?[0-9a-fA-F]+;){3,}'
+    description: HTML numeric entities used for obfuscation (3+ consecutive)
+
+  - id: EN-006
+    type: multi_file_split
+    pattern: '(?:(?:continued|part\s+\d+)\s+(?:in|from|see)\s+(?:file|document)|assemble\s+(?:from|with)\s+(?:other\s+)?(?:files?|parts?)|split\s+across\s+(?:files?|documents?))'
+    description: Multi-file split patterns referencing content assembly

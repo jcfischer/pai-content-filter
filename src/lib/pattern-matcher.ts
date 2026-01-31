@@ -1,0 +1,237 @@
+import {
+  type FilterPattern,
+  type PatternMatch,
+  type FilterConfig,
+  FilterConfigSchema,
+} from "./types";
+
+/**
+ * Minimal YAML parser for our specific config format.
+ * Handles: top-level string keys, arrays of flat objects with string/number values.
+ * Supports single-quoted strings (for regex patterns containing special chars).
+ * NOT a general-purpose YAML parser.
+ */
+export function parseSimpleYaml(text: string): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const lines = text.split("\n");
+  let currentKey = "";
+  let currentArray: Record<string, unknown>[] = [];
+  let currentObject: Record<string, unknown> | null = null;
+  let inArray = false;
+
+  for (const rawLine of lines) {
+    const line = stripYamlComment(rawLine);
+    if (line.trim() === "") continue;
+
+    const indent = line.length - line.trimStart().length;
+    const trimmed = line.trimStart();
+
+    // Top-level key (indent 0): "version: ..." or "patterns:" or "encoding_rules:"
+    if (indent === 0 && trimmed.includes(":")) {
+      // Save previous array if we were collecting one
+      if (inArray && currentKey) {
+        if (currentObject) {
+          currentArray.push(currentObject);
+          currentObject = null;
+        }
+        result[currentKey] = currentArray;
+      }
+
+      const colonIdx = trimmed.indexOf(":");
+      const key = trimmed.slice(0, colonIdx).trim();
+      const valuePart = trimmed.slice(colonIdx + 1).trim();
+
+      if (valuePart === "" || valuePart === undefined) {
+        // Array or nested object follows
+        currentKey = key;
+        currentArray = [];
+        currentObject = null;
+        inArray = true;
+      } else {
+        // Simple scalar value
+        result[key] = parseYamlValue(valuePart);
+        inArray = false;
+      }
+      continue;
+    }
+
+    // Array item start: "  - key: value" (indent 2+, starts with "- ")
+    if (inArray && trimmed.startsWith("- ")) {
+      // Save previous object if any
+      if (currentObject) {
+        currentArray.push(currentObject);
+      }
+      currentObject = {};
+      const rest = trimmed.slice(2).trim();
+      if (rest.includes(":")) {
+        const { key: k, value: v } = splitKeyValue(rest);
+        currentObject[k] = parseYamlValue(v);
+      }
+      continue;
+    }
+
+    // Object property inside array item: "    key: value" (indent 4+)
+    if (inArray && currentObject && indent >= 4 && trimmed.includes(":")) {
+      const { key: k, value: v } = splitKeyValue(trimmed);
+      currentObject[k] = parseYamlValue(v);
+      continue;
+    }
+  }
+
+  // Flush final array/object
+  if (currentObject) currentArray.push(currentObject);
+  if (inArray && currentKey) result[currentKey] = currentArray;
+
+  return result;
+}
+
+/**
+ * Split a "key: value" string at the FIRST colon followed by space (or end of string).
+ * This handles regex patterns that contain colons internally.
+ */
+function splitKeyValue(text: string): { key: string; value: string } {
+  // Match key: value where value may be quoted
+  // The key is everything before the first ": " or ":" at end
+  const match = text.match(/^([^:]+):\s*(.*)/);
+  if (!match) {
+    return { key: text.trim(), value: "" };
+  }
+  return { key: match[1]!.trim(), value: match[2]!.trim() };
+}
+
+/**
+ * Parse a YAML value string, handling:
+ * - Single-quoted strings: 'value' (no escape processing)
+ * - Double-quoted strings: "value"
+ * - Numbers
+ * - Plain strings
+ */
+function parseYamlValue(raw: string): string | number {
+  if (raw === "") return "";
+
+  // Single-quoted string: take content between outermost single quotes
+  if (raw.startsWith("'") && raw.endsWith("'") && raw.length >= 2) {
+    return raw.slice(1, -1);
+  }
+
+  // Double-quoted string
+  if (raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) {
+    return raw.slice(1, -1);
+  }
+
+  // Number
+  if (raw !== "" && !isNaN(Number(raw))) {
+    return Number(raw);
+  }
+
+  // Plain string
+  return raw;
+}
+
+/**
+ * Strip YAML comments from a line, respecting single-quoted strings.
+ * A '#' inside single quotes is NOT a comment.
+ */
+function stripYamlComment(line: string): string {
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+
+    if (ch === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+    } else if (ch === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+    } else if (ch === "#" && !inSingleQuote && !inDoubleQuote) {
+      // Check it's preceded by whitespace or is start of line
+      if (i === 0 || line[i - 1] === " " || line[i - 1] === "\t") {
+        return line.slice(0, i).trimEnd();
+      }
+    }
+  }
+
+  return line;
+}
+
+/**
+ * Load and validate a filter configuration from a YAML file.
+ *
+ * Reads the YAML file, parses it with a minimal purpose-built parser,
+ * validates with Zod schema, and verifies all regex patterns compile.
+ * Throws on invalid config, invalid regex, or file read errors.
+ */
+export function loadConfig(configPath: string): FilterConfig {
+  const fs = require("fs");
+  const text = fs.readFileSync(configPath, "utf-8") as string;
+  const raw = parseSimpleYaml(text);
+  const config = FilterConfigSchema.parse(raw);
+
+  // Validate all pattern regexes compile (fail-fast per R-004)
+  for (const pattern of config.patterns) {
+    try {
+      new RegExp(pattern.pattern, "i");
+    } catch (e) {
+      throw new Error(
+        `Invalid regex in pattern ${pattern.id}: ${pattern.pattern} -- ${e}`
+      );
+    }
+  }
+
+  // Validate all encoding rule regexes compile
+  for (const rule of config.encoding_rules) {
+    try {
+      new RegExp(rule.pattern);
+    } catch (e) {
+      throw new Error(
+        `Invalid regex in encoding rule ${rule.id}: ${rule.pattern} -- ${e}`
+      );
+    }
+  }
+
+  return config;
+}
+
+/**
+ * Match content against an array of filter patterns.
+ *
+ * Scans every line against every pattern (case-insensitive).
+ * Returns ALL matches (not just first) with line/column positions.
+ * Follows the same scanning pattern as encoding-detector.ts.
+ */
+export function matchPatterns(
+  content: string,
+  patterns: FilterPattern[]
+): PatternMatch[] {
+  const matches: PatternMatch[] = [];
+  const lines = content.split("\n");
+
+  for (const pattern of patterns) {
+    const regex = new RegExp(pattern.pattern, "gi");
+
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx]!;
+
+      // Reset lastIndex for each line
+      regex.lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = regex.exec(line)) !== null) {
+        matches.push({
+          pattern_id: pattern.id,
+          pattern_name: pattern.name,
+          category: pattern.category,
+          severity: pattern.severity,
+          matched_text: match[0].trim(),
+          line: lineIdx + 1,
+          column: match.index + 1,
+        });
+
+        // Prevent infinite loop on zero-length matches
+        if (match[0].length === 0) regex.lastIndex++;
+      }
+    }
+  }
+
+  return matches;
+}
