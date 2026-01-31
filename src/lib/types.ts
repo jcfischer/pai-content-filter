@@ -6,6 +6,7 @@ export const PatternCategory = z.enum([
   "injection",
   "exfiltration",
   "tool_invocation",
+  "pii",
 ]);
 export type PatternCategory = z.infer<typeof PatternCategory>;
 

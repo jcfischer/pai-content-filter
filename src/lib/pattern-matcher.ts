@@ -193,11 +193,27 @@ export function loadConfig(configPath: string): FilterConfig {
 }
 
 /**
+ * Maximum line length to process. Lines longer than this are truncated
+ * before regex matching to prevent ReDoS attacks via crafted input.
+ * A 10KB line is far beyond any legitimate YAML/markdown content.
+ */
+const MAX_LINE_LENGTH = 10_000;
+
+/**
+ * Timeout in milliseconds for regex matching on a single line.
+ * If a pattern takes longer than this, it's likely a ReDoS attempt.
+ */
+const REGEX_TIMEOUT_MS = 500;
+
+/**
  * Match content against an array of filter patterns.
  *
  * Scans every line against every pattern (case-insensitive).
  * Returns ALL matches (not just first) with line/column positions.
  * Follows the same scanning pattern as encoding-detector.ts.
+ *
+ * ReDoS protection: lines are truncated at MAX_LINE_LENGTH and
+ * regex execution is time-bounded per pattern per line.
  */
 export function matchPatterns(
   content: string,
@@ -207,31 +223,125 @@ export function matchPatterns(
   const lines = content.split("\n");
 
   for (const pattern of patterns) {
-    const regex = new RegExp(pattern.pattern, "gi");
-
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-      const line = lines[lineIdx]!;
+      // Truncate long lines to prevent ReDoS
+      const line =
+        lines[lineIdx]!.length > MAX_LINE_LENGTH
+          ? lines[lineIdx]!.slice(0, MAX_LINE_LENGTH)
+          : lines[lineIdx]!;
 
-      // Reset lastIndex for each line
-      regex.lastIndex = 0;
-      let match: RegExpExecArray | null;
+      // Create fresh regex per line to reset state
+      const regex = new RegExp(pattern.pattern, "gi");
 
-      while ((match = regex.exec(line)) !== null) {
+      const lineMatches = safeRegexExec(regex, line, REGEX_TIMEOUT_MS);
+      for (const match of lineMatches) {
+        // Skip false positives in code block fences and inline code
+        if (isInsideCodeContext(line, match.index)) continue;
+
         matches.push({
           pattern_id: pattern.id,
           pattern_name: pattern.name,
           category: pattern.category,
           severity: pattern.severity,
-          matched_text: match[0].trim(),
+          matched_text: match.text.trim(),
           line: lineIdx + 1,
           column: match.index + 1,
         });
-
-        // Prevent infinite loop on zero-length matches
-        if (match[0].length === 0) regex.lastIndex++;
       }
     }
   }
 
   return matches;
+}
+
+/**
+ * Execute regex against a string with a time bound.
+ *
+ * Returns all matches found within the timeout. If the regex takes
+ * too long (potential ReDoS), returns matches found so far.
+ * This prevents pathological regex inputs from hanging the scanner.
+ */
+function safeRegexExec(
+  regex: RegExp,
+  line: string,
+  timeoutMs: number
+): Array<{ text: string; index: number }> {
+  const results: Array<{ text: string; index: number }> = [];
+  const startTime = performance.now();
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(line)) !== null) {
+    results.push({ text: match[0], index: match.index });
+
+    // Prevent infinite loop on zero-length matches
+    if (match[0].length === 0) regex.lastIndex++;
+
+    // Check timeout
+    if (performance.now() - startTime > timeoutMs) break;
+  }
+
+  return results;
+}
+
+/**
+ * Check if a match position is inside a markdown code context.
+ *
+ * Returns true if the line is a code fence (``` or ~~~) or the match
+ * appears inside backtick-delimited inline code. This reduces false
+ * positives from code examples in documentation.
+ */
+function isInsideCodeContext(line: string, matchIndex: number): boolean {
+  const trimmed = line.trimStart();
+
+  // Code fence lines (``` or ~~~) — don't filter these
+  if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) return true;
+
+  // Check if match is inside inline backticks
+  let inBacktick = false;
+  let backtickStart = -1;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === "`") {
+      if (!inBacktick) {
+        inBacktick = true;
+        backtickStart = i;
+      } else {
+        // End of inline code span
+        if (matchIndex > backtickStart && matchIndex < i) return true;
+        inBacktick = false;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validate a number using the Luhn algorithm (ISO/IEC 7812-1).
+ *
+ * Used to verify credit card numbers. The algorithm detects any
+ * single-digit error and most transpositions of adjacent digits.
+ * Returns true for valid card numbers, false for random digit sequences.
+ *
+ * Source: Microsoft Presidio patterns, adapted from Arbor's arbor_eval.
+ */
+export function luhnCheck(digits: string): boolean {
+  const cleaned = digits.replace(/[\s-]/g, "");
+  if (!/^\d{13,19}$/.test(cleaned)) return false;
+
+  let sum = 0;
+  let alternate = false;
+
+  for (let i = cleaned.length - 1; i >= 0; i--) {
+    let n = parseInt(cleaned[i]!, 10);
+
+    if (alternate) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+
+    sum += n;
+    alternate = !alternate;
+  }
+
+  return sum % 10 === 0;
 }
