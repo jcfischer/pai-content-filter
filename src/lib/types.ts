@@ -152,3 +152,32 @@ export const DEFAULT_AUDIT_CONFIG: Omit<AuditConfig, "logDir"> = {
   maxSizeBytes: 10 * 1024 * 1024, // 10MB
   maxRotatedFiles: 3,
 };
+
+// --- Typed Reference Types (F-003) ---
+
+export const TypedReferenceFilterResult = z.enum([
+  "PASSED",
+  "OVERRIDE",
+  "HUMAN_APPROVED",
+]);
+export type TypedReferenceFilterResult = z.infer<
+  typeof TypedReferenceFilterResult
+>;
+
+export const TypedReferenceSchema = z.object({
+  id: z.string().uuid(),
+  origin: z.string().min(1),
+  trust_level: z.literal("untrusted"),
+  content_hash: z.string().length(64),
+  filter_result: TypedReferenceFilterResult,
+  consumed_at: z.string().datetime(),
+  format: FileFormat,
+  data: z.record(z.unknown()),
+  source_file: z.string().min(1),
+});
+export type TypedReference = z.infer<typeof TypedReferenceSchema>;
+
+export interface ProvenanceResult {
+  valid: boolean;
+  errors: string[];
+}

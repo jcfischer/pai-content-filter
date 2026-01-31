@@ -15,6 +15,15 @@ export {
   rotateIfNeeded,
 } from "./lib/audit";
 export { overrideDecision, submitReview } from "./lib/human-review";
+export {
+  createTypedReference,
+  validateProvenance,
+  extractOrigin,
+} from "./lib/typed-reference";
+export {
+  TypedReferenceSchema,
+  TypedReferenceFilterResult,
+} from "./lib/types";
 export type {
   FilterConfig,
   FilterPattern,
@@ -29,4 +38,6 @@ export type {
   AuditConfig,
   AuditEventType,
   AuditDecision,
+  TypedReference,
+  ProvenanceResult,
 } from "./lib/types";
