@@ -2,7 +2,9 @@
 
 import { filterContent } from "./lib/content-filter";
 import { loadConfig } from "./lib/pattern-matcher";
-import { resolve } from "path";
+import { readAuditLog, buildAuditConfig } from "./lib/audit";
+import { resolve, join } from "path";
+import { homedir } from "os";
 
 const CONFIG_PATH = resolve(import.meta.dir, "../config/filter-patterns.yaml");
 
@@ -11,13 +13,17 @@ function printUsage(): void {
 
 Commands:
   check <file>     Check a file against the content filter
+  audit            Display audit trail entries
   config           Display loaded filter configuration summary
 
 Options:
-  --json           Machine-readable JSON output
-  --config <path>  Path to filter-patterns.yaml (default: bundled config)
-  --format <fmt>   Override file format detection (yaml|json|markdown|mixed)
-  -h, --help       Show this help message
+  --json               Machine-readable JSON output
+  --config <path>      Path to filter-patterns.yaml (default: bundled config)
+  --format <fmt>       Override file format detection (yaml|json|markdown|mixed)
+  --last <N>           Show last N audit entries (default: 20)
+  --decision <type>    Filter audit entries by decision (ALLOWED|BLOCKED|etc.)
+  --log-dir <path>     Audit log directory
+  -h, --help           Show this help message
 
 Exit codes:
   0  ALLOWED or HUMAN_REVIEW
@@ -110,6 +116,63 @@ function main(): void {
         }
         process.exit(1);
       }
+    }
+
+    case "audit": {
+      const logDirIdx = args.indexOf("--log-dir");
+      const logDir =
+        logDirIdx >= 0 && args[logDirIdx + 1]
+          ? args[logDirIdx + 1]!
+          : join(homedir(), ".config", "content-filter", "audit");
+      const lastIdx = args.indexOf("--last");
+      const last =
+        lastIdx >= 0 && args[lastIdx + 1]
+          ? parseInt(args[lastIdx + 1]!, 10)
+          : 20;
+      const decisionIdx = args.indexOf("--decision");
+      const decisionFilter =
+        decisionIdx >= 0 ? args[decisionIdx + 1] : undefined;
+
+      try {
+        const auditConfig = buildAuditConfig(logDir);
+        const entries = readAuditLog(auditConfig, {
+          last,
+          decision: decisionFilter,
+        });
+
+        if (jsonFlag) {
+          console.log(JSON.stringify(entries, null, 2));
+        } else {
+          if (entries.length === 0) {
+            console.log("No audit entries found.");
+          } else {
+            console.log(`Audit Trail (${entries.length} entries):\n`);
+            for (const entry of entries) {
+              const ts = entry.timestamp.replace("T", " ").replace(/\.\d+Z$/, "Z");
+              console.log(
+                `  ${ts}  ${entry.decision.padEnd(14)}  ${entry.source_file}`
+              );
+              if (entry.matched_patterns.length > 0) {
+                console.log(
+                  `    patterns: ${entry.matched_patterns.join(", ")}`
+                );
+              }
+              if (entry.approver) {
+                console.log(`    approver: ${entry.approver}`);
+              }
+              if (entry.reason) {
+                console.log(`    reason: ${entry.reason}`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error(
+          `Error reading audit log: ${e instanceof Error ? e.message : String(e)}`
+        );
+        process.exit(1);
+      }
+      break;
     }
 
     case "config": {

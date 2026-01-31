@@ -25,7 +25,14 @@ export type EncodingType = z.infer<typeof EncodingType>;
 export const FileFormat = z.enum(["yaml", "json", "markdown", "mixed"]);
 export type FileFormat = z.infer<typeof FileFormat>;
 
-export const FilterDecision = z.enum(["ALLOWED", "BLOCKED", "HUMAN_REVIEW"]);
+export const FilterDecision = z.enum([
+  "ALLOWED",
+  "BLOCKED",
+  "HUMAN_REVIEW",
+  "OVERRIDE",
+  "HUMAN_APPROVED",
+  "HUMAN_REJECTED",
+]);
 export type FilterDecision = z.infer<typeof FilterDecision>;
 
 // --- Filter Pattern (from YAML config) ---
@@ -95,3 +102,53 @@ export interface FilterResult {
   file: string;
   format: FileFormat;
 }
+
+// --- Audit Types (F-002) ---
+
+export const AuditEventType = z.enum([
+  "filter_pass",
+  "filter_block",
+  "human_review",
+  "human_approve",
+  "human_reject",
+  "override",
+]);
+export type AuditEventType = z.infer<typeof AuditEventType>;
+
+export const AuditDecision = z.enum([
+  "ALLOWED",
+  "BLOCKED",
+  "HUMAN_REVIEW",
+  "OVERRIDE",
+  "HUMAN_APPROVED",
+  "HUMAN_REJECTED",
+]);
+export type AuditDecision = z.infer<typeof AuditDecision>;
+
+export const AuditEntrySchema = z.object({
+  timestamp: z.string(),
+  session_id: z.string(),
+  event_type: AuditEventType,
+  source_repo: z.string(),
+  source_file: z.string(),
+  content_hash: z.string(),
+  decision: AuditDecision,
+  matched_patterns: z.array(z.string()),
+  encoding_detections: z.array(z.string()),
+  schema_valid: z.boolean(),
+  format: z.string(),
+  approver: z.string().optional(),
+  reason: z.string().optional(),
+});
+export type AuditEntry = z.infer<typeof AuditEntrySchema>;
+
+export interface AuditConfig {
+  logDir: string;
+  maxSizeBytes: number;
+  maxRotatedFiles: number;
+}
+
+export const DEFAULT_AUDIT_CONFIG: Omit<AuditConfig, "logDir"> = {
+  maxSizeBytes: 10 * 1024 * 1024, // 10MB
+  maxRotatedFiles: 3,
+};

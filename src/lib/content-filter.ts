@@ -1,8 +1,14 @@
-import type { FileFormat, FilterResult } from "./types";
+import type { AuditConfig, FileFormat, FilterResult } from "./types";
 import { loadConfig, matchPatterns } from "./pattern-matcher";
 import { detectEncoding } from "./encoding-detector";
 import { validateSchema } from "./schema-validator";
 import { resolve } from "path";
+import {
+  createAuditEntry,
+  hashContent,
+  generateSessionId,
+  logAuditEntry,
+} from "./audit";
 
 const CONFIG_PATH = resolve(import.meta.dir, "../../config/filter-patterns.yaml");
 
@@ -38,13 +44,22 @@ export function detectFormat(filePath: string): FileFormat {
 export function filterContent(
   filePath: string,
   format?: FileFormat,
-  configPath?: string
+  configPath?: string,
+  auditConfig?: AuditConfig,
+  auditOpts?: { sourceRepo?: string; sessionId?: string }
 ): FilterResult {
   const fs = require("fs") as typeof import("fs");
   const content = fs.readFileSync(filePath, "utf-8");
   const fileFormat = format ?? detectFormat(filePath);
 
-  return filterContentString(content, filePath, fileFormat, configPath);
+  return filterContentString(
+    content,
+    filePath,
+    fileFormat,
+    configPath,
+    auditConfig,
+    auditOpts
+  );
 }
 
 /**
@@ -54,14 +69,16 @@ export function filterContentString(
   content: string,
   filePath: string,
   format: FileFormat,
-  configPath?: string
+  configPath?: string,
+  auditConfig?: AuditConfig,
+  auditOpts?: { sourceRepo?: string; sessionId?: string }
 ): FilterResult {
   const config = loadConfig(configPath ?? CONFIG_PATH);
 
   // Step 1: Encoding detection — short-circuit on match
   const encodings = detectEncoding(content, config.encoding_rules);
   if (encodings.length > 0) {
-    return {
+    const result: FilterResult = {
       decision: "BLOCKED",
       matches: [],
       encodings,
@@ -69,6 +86,8 @@ export function filterContentString(
       file: filePath,
       format,
     };
+    maybeLogAudit(result, content, auditConfig, auditOpts);
+    return result;
   }
 
   // Step 2: Schema validation (structured formats only)
@@ -77,7 +96,7 @@ export function filterContentString(
     const schemaResult = validateSchema(content, format);
     schemaValid = schemaResult.valid;
     if (!schemaValid) {
-      return {
+      const result: FilterResult = {
         decision: "BLOCKED",
         matches: [],
         encodings: [],
@@ -85,6 +104,8 @@ export function filterContentString(
         file: filePath,
         format,
       };
+      maybeLogAudit(result, content, auditConfig, auditOpts);
+      return result;
     }
   }
 
@@ -95,7 +116,7 @@ export function filterContentString(
   const hasBlockMatch = matches.some((m) => m.severity === "block");
 
   if (hasBlockMatch) {
-    return {
+    const result: FilterResult = {
       decision: "BLOCKED",
       matches,
       encodings: [],
@@ -103,11 +124,13 @@ export function filterContentString(
       file: filePath,
       format,
     };
+    maybeLogAudit(result, content, auditConfig, auditOpts);
+    return result;
   }
 
   // Free-text always requires human review, even when clean
   if (format === "markdown" || format === "mixed") {
-    return {
+    const result: FilterResult = {
       decision: "HUMAN_REVIEW",
       matches,
       encodings: [],
@@ -115,10 +138,12 @@ export function filterContentString(
       file: filePath,
       format,
     };
+    maybeLogAudit(result, content, auditConfig, auditOpts);
+    return result;
   }
 
   // Structured format, clean
-  return {
+  const result: FilterResult = {
     decision: "ALLOWED",
     matches,
     encodings: [],
@@ -126,4 +151,29 @@ export function filterContentString(
     file: filePath,
     format,
   };
+  maybeLogAudit(result, content, auditConfig, auditOpts);
+  return result;
+}
+
+/**
+ * Log audit entry if auditConfig is provided. Fail-open.
+ */
+function maybeLogAudit(
+  result: FilterResult,
+  content: string,
+  auditConfig?: AuditConfig,
+  opts?: { sourceRepo?: string; sessionId?: string }
+): void {
+  if (!auditConfig) return;
+
+  try {
+    const entry = createAuditEntry(result, {
+      contentHash: hashContent(content),
+      sessionId: opts?.sessionId ?? generateSessionId(),
+      sourceRepo: opts?.sourceRepo,
+    });
+    logAuditEntry(entry, auditConfig);
+  } catch {
+    // Fail-open: audit failure does not block the filter pipeline
+  }
 }
