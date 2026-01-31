@@ -11,26 +11,75 @@ Inbound content security for PAI cross-project collaboration.
 ## Development
 
 ```bash
-bun test              # Run tests
-bun run typecheck     # Type checking
-specflow status       # Feature queue
-specflow run          # Implementation guidance
+bun test              # Run all 275 tests
+bun run typecheck     # Type checking (tsc --noEmit)
+bun run src/cli.ts    # CLI entry point
 ```
 
-## Architecture
+## Project Structure
 
-Defense-in-depth with 3 layers, decomposed into 5 features (F-001 through F-005).
+```
+src/
+├── cli.ts                     # CLI: check, audit, config subcommands
+├── index.ts                   # Public API exports
+└── lib/
+    ├── content-filter.ts      # Core pipeline: encoding → schema → pattern → decision
+    ├── pattern-matcher.ts     # YAML config loader + regex matching
+    ├── encoding-detector.ts   # Base64, unicode, hex, URL-encoded, HTML entity detection
+    ├── schema-validator.ts    # Zod validation for YAML/JSON formats
+    ├── audit.ts               # JSONL append-only audit trail with rotation
+    ├── human-review.ts        # Override and review decision flows
+    ├── typed-reference.ts     # Immutable TypedReference builder + provenance validation
+    ├── quarantine-runner.ts   # Subprocess isolation for cross-project reads
+    ├── alerts.ts              # Structured stderr block alerts
+    └── types.ts               # All Zod schemas and TypeScript types
 
-- **F-001**: Content Filter Engine (foundation — pattern matching, schema validation, encoding detection)
-- **F-002**: Audit Trail & Override (append-only JSONL logging, human override)
-- **F-003**: Typed References & Provenance (cross-context data transfer with metadata)
-- **F-004**: Dual-Context Sandboxing (CaMeL-inspired quarantined/privileged separation)
-- **F-005**: Integration & Canary Suite (hook wiring, adversarial tests, red team)
+hooks/
+└── ContentFilter.hook.ts      # PreToolUse security gate (standalone script)
 
-## Key Principle
+config/
+├── filter-patterns.yaml       # Pattern library (28 patterns + 6 encoding rules)
+├── cross-project-profile.json # MCP profile for quarantined context
+└── schemas/                   # Zod schemas for EXTEND.yaml, REGISTRY.md, SOPs
+    ├── extend-yaml.ts
+    ├── registry-md.ts
+    └── sop.ts
 
-**Deterministic filtering only.** No LLM-based classification. All decisions are regex + Zod. Layer 2 (architectural isolation) is the primary defense — Layer 1 (pattern matching) is necessary but insufficient.
+tests/
+├── content-filter.test.ts     # F-001: 42 tests
+├── encoding-detector.test.ts  # F-001: 48 tests
+├── audit.test.ts              # F-002: 22 tests
+├── human-review.test.ts       # F-002: 14 tests
+├── typed-reference.test.ts    # F-003: 33 tests
+├── quarantine-runner.test.ts  # F-004: 24 tests
+├── canary.test.ts             # F-005: 61 canary + performance tests
+└── integration/
+    ├── pipeline.test.ts       # F-005: 17 end-to-end pipeline tests
+    └── hook.test.ts           # F-005: 14 hook integration tests
+```
 
-## Origin
+## Module Map
 
-Decomposed from F-088 in kai-improvement-roadmap. See `.specify/` for all specs.
+| Module | Feature | Purpose |
+|--------|---------|---------|
+| content-filter | F-001 | `filterContent()`, `filterContentString()` — core pipeline |
+| pattern-matcher | F-001 | `loadConfig()`, `matchPatterns()` — YAML pattern library |
+| encoding-detector | F-001 | `detectEncoding()` — obfuscation detection |
+| schema-validator | F-001 | `validateSchema()` — Zod-based format validation |
+| audit | F-002 | `logAuditEntry()`, `readAuditLog()` — JSONL logging |
+| human-review | F-002 | `overrideDecision()`, `submitReview()` — human-in-loop |
+| typed-reference | F-003 | `createTypedReference()`, `validateProvenance()` — immutable refs |
+| quarantine-runner | F-004 | `runQuarantine()`, `loadProfile()` — subprocess isolation |
+| alerts | F-005 | `alertBlock()` — stderr alert output |
+
+## Key Patterns
+
+- **Pipeline**: encoding detection → schema validation → pattern matching → decision
+- **Decision types**: ALLOWED, BLOCKED, HUMAN_REVIEW, OVERRIDE, HUMAN_APPROVED, HUMAN_REJECTED
+- **Fail-open**: audit failures and hook errors never block the pipeline
+- **Immutability**: TypedReferences are `Object.freeze()`d after creation
+- **TDD**: All features built test-first (RED → GREEN)
+
+## SpecFlow
+
+All 5 features complete. Specs in `.specify/specs/f-00N-*/`.

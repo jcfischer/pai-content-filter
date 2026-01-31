@@ -44,29 +44,81 @@ Shared Repository (pai-collab, Blackboard, PRs)
 
 ## Features
 
-| Feature | Name | Status | Source |
-|---------|------|--------|--------|
-| F-001 | Content Filter Engine | Specified | R-001, R-002, R-003 |
-| F-002 | Audit Trail & Override | Stub | R-005, R-006 |
-| F-003 | Typed References & Provenance | Stub | R-008 |
-| F-004 | Dual-Context Sandboxing | Stub | R-004 |
-| F-005 | Integration & Canary Suite | Stub | R-007 + e2e |
+| Feature | Name | Status | Tests |
+|---------|------|--------|-------|
+| F-001 | Content Filter Engine | Complete | 90 |
+| F-002 | Audit Trail & Override | Complete | 36 |
+| F-003 | Typed References & Provenance | Complete | 33 |
+| F-004 | Dual-Context Sandboxing | Complete | 24 |
+| F-005 | Integration & Canary Suite | Complete | 92 |
+| | **Total** | **5/5** | **275** |
 
-## Usage (planned)
+## Usage
 
 ```bash
-# CLI: Check a file
-content-filter check path/to/EXTEND.yaml
+# Check a file against the content filter
+bun run src/cli.ts check path/to/EXTEND.yaml
 
-# CLI: View audit log
-content-filter audit --last 20
+# Check with JSON output
+bun run src/cli.ts check path/to/file.yaml --json
 
-# CLI: Run canary tests
-content-filter test
+# View audit trail
+bun run src/cli.ts audit --last 20
 
-# Library: Import in TypeScript
-import { filterContent } from "pai-content-filter/lib/content-filter";
+# View filter configuration
+bun run src/cli.ts config
+
+# Run all tests
+bun test
+
+# Type check
+bun run typecheck
 ```
+
+### Library Usage
+
+```typescript
+import { filterContent, filterContentString } from "pai-content-filter";
+
+// Filter a file
+const result = filterContent("path/to/EXTEND.yaml");
+// result.decision: "ALLOWED" | "BLOCKED" | "HUMAN_REVIEW"
+
+// Filter a string
+const result = filterContentString(content, "file.yaml", "yaml");
+
+// Create a typed reference from allowed content
+import { createTypedReference } from "pai-content-filter";
+const ref = createTypedReference(result, content, { name: "project" });
+// ref is frozen — provenance immutable
+
+// Override a blocked result
+import { overrideDecision } from "pai-content-filter";
+const override = overrideDecision(result, content, "admin", "reviewed manually", auditConfig);
+```
+
+### PreToolUse Hook
+
+The hook at `hooks/ContentFilter.hook.ts` integrates with Claude Code's PreToolUse event. Set the `CONTENT_FILTER_SHARED_DIR` environment variable to the shared repository path:
+
+```bash
+CONTENT_FILTER_SHARED_DIR=/path/to/shared-repo bun run hooks/ContentFilter.hook.ts
+```
+
+The hook gates Read/Glob/Grep tool calls targeting shared repo paths. Exit codes: 0 (allow), 2 (block).
+
+## Pattern Library
+
+28 detection patterns across 3 categories + 6 encoding rules, defined in `config/filter-patterns.yaml`:
+
+| Category | Patterns | Examples |
+|----------|----------|---------|
+| Injection (PI) | 11 | System prompt override, role-play, jailbreak, delimiter injection |
+| Exfiltration (EX) | 5 | Path traversal, network exfil, clipboard, env leak |
+| Tool Invocation (TI) | 6 | Shell commands, code execution, MCP tool invoke |
+| Encoding (EN) | 6 | Base64, unicode escapes, hex, URL-encoded, HTML entities |
+
+All patterns are regex-based, human-editable, and hot-reloadable (no restart required).
 
 ## Stack
 
