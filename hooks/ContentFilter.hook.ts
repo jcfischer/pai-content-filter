@@ -3,8 +3,10 @@
 /**
  * PreToolUse hook: Content filter security gate.
  *
- * Intercepts Read/Glob/Grep tool calls targeting shared repo paths.
- * Runs the content filter pipeline on the target file.
+ * Intercepts Read/Glob/Grep tool calls targeting sandbox directory paths.
+ * Any file under the sandbox directory is treated as untrusted external
+ * content and must pass the content filter pipeline before an agent can
+ * read it.
  *
  * Exit codes:
  *   0 — Allow (passthrough, clean content, or HUMAN_REVIEW)
@@ -13,7 +15,8 @@
  * Fail-open: any error → exit 0 (never block on infrastructure failure).
  *
  * Environment:
- *   CONTENT_FILTER_SHARED_DIR — directory prefix for shared repo paths (required)
+ *   CONTENT_FILTER_SANDBOX_DIR — directory where external content lives (required)
+ *   CONTENT_FILTER_SHARED_DIR — deprecated alias (fallback if SANDBOX_DIR not set)
  */
 
 import { filterContent } from "../src/lib/content-filter";
@@ -61,10 +64,12 @@ async function main(): Promise<void> {
       process.exit(0); // no file path to gate
     }
 
-    // Check if path is within shared repo directory
-    const sharedDir = process.env.CONTENT_FILTER_SHARED_DIR;
-    if (!sharedDir || !filePath.startsWith(sharedDir)) {
-      process.exit(0); // not a shared path — passthrough
+    // Check if path is within sandbox directory
+    const sandboxDir =
+      process.env.CONTENT_FILTER_SANDBOX_DIR ??
+      process.env.CONTENT_FILTER_SHARED_DIR; // deprecated fallback
+    if (!sandboxDir || !filePath.startsWith(sandboxDir)) {
+      process.exit(0); // not in sandbox — passthrough
     }
 
     // Check file exists before filtering

@@ -100,7 +100,7 @@ async function runHook(input: {
     env: {
       ...process.env,
       // Pass the shared directory so the hook knows what paths to gate
-      CONTENT_FILTER_SHARED_DIR: SHARED_DIR,
+      CONTENT_FILTER_SANDBOX_DIR: SHARED_DIR,
     },
   });
 
@@ -238,7 +238,7 @@ describe("Hook — Fail-open on errors", () => {
       stderr: "pipe",
       env: {
         ...process.env,
-        CONTENT_FILTER_SHARED_DIR: SHARED_DIR,
+        CONTENT_FILTER_SANDBOX_DIR: SHARED_DIR,
       },
     });
 
@@ -257,7 +257,7 @@ describe("Hook — Fail-open on errors", () => {
       stderr: "pipe",
       env: {
         ...process.env,
-        CONTENT_FILTER_SHARED_DIR: SHARED_DIR,
+        CONTENT_FILTER_SANDBOX_DIR: SHARED_DIR,
       },
     });
 
@@ -265,6 +265,36 @@ describe("Hook — Fail-open on errors", () => {
 
     const exitCode = await proc.exited;
     expect(exitCode).toBe(0);
+  });
+});
+
+// ============================================================
+// Backward compatibility — CONTENT_FILTER_SHARED_DIR
+// ============================================================
+
+describe("Hook — Deprecated CONTENT_FILTER_SHARED_DIR fallback", () => {
+  test("old env var still gates files (backward compat)", async () => {
+    const proc = Bun.spawn(["bun", "run", HOOK_PATH], {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        ...process.env,
+        CONTENT_FILTER_SHARED_DIR: SHARED_DIR,
+        // CONTENT_FILTER_SANDBOX_DIR intentionally NOT set
+      },
+    });
+
+    proc.stdin.write(
+      JSON.stringify({
+        tool_name: "Read",
+        tool_input: { file_path: maliciousYamlPath },
+      })
+    );
+    proc.stdin.end();
+
+    const exitCode = await proc.exited;
+    expect(exitCode).toBe(2); // still blocks via deprecated fallback
   });
 });
 

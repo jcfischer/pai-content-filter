@@ -1,10 +1,10 @@
 # pai-content-filter
 
-Inbound content security for [PAI](https://github.com/danielmiessler/PAI) cross-project collaboration ([pai-collab](https://github.com/jcfischer/pai-collab)).
+Inbound content security for [PAI](https://github.com/danielmiessler/PAI) agents. Scans any externally-sourced content before an agent reads it.
 
 ## What This Does
 
-Defense-in-depth security architecture for when PAI agents consume shared repository content. Three layers protect against prompt injection, data exfiltration, and trust model abuse:
+Defense-in-depth security for when PAI agents consume content from external sources — cloned repos, downloaded artifacts, shared blackboards, PR content, or any file that didn't originate from the agent's own workspace. Three layers:
 
 1. **Layer 1 — Content Filter** (F-001): Deterministic pattern matching, schema validation, and encoding detection. Catches known attack patterns.
 2. **Layer 2 — Architectural Isolation** (F-004): Tool-restricted sandbox. Quarantined agent processes untrusted content with no access to personal tools or data. Primary defense.
@@ -12,33 +12,165 @@ Defense-in-depth security architecture for when PAI agents consume shared reposi
 
 **Key principle:** Pattern matching is necessary but insufficient. Layer 2 must hold even when Layer 1 is completely bypassed.
 
+## The Sandbox Directory
+
+The core concept: **all externally-sourced content lives in a sandbox directory**. Any file under this directory is treated as untrusted and must pass the content filter before an agent can read it.
+
+```
+~/work/
+  my-project/          # Your own code — NOT filtered
+  another-project/     # Your own code — NOT filtered
+  sandbox/             # <-- CONTENT_FILTER_SANDBOX_DIR
+    pai-collab/        # Cloned external repo — FILTERED
+    downloaded-pr/     # Fetched PR content — FILTERED
+    external-data/     # Any external artifact — FILTERED
+```
+
+**The rule:** Agents must place all externally-sourced content (git clones, downloads, fetched artifacts) under the sandbox directory. The hook automatically gates any Read/Glob/Grep targeting paths inside it.
+
+Content outside the sandbox is not filtered — your own project files, personal documents, and tools are unaffected.
+
+## How It Works
+
+There are three ways to invoke the filter. The PreToolUse hook is the primary integration.
+
+### 1. PreToolUse Hook (automatic, primary)
+
+The hook intercepts tool calls in Claude Code **before they execute**. When an agent tries to Read a file inside the sandbox directory, the hook runs the full filter pipeline and blocks the read if malicious content is detected.
+
+**Setup** — add to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Read|Glob|Grep",
+      "command": "CONTENT_FILTER_SANDBOX_DIR=~/work/sandbox bun run /path/to/pai-content-filter/hooks/ContentFilter.hook.ts"
+    }]
+  }
+}
+```
+
+**What happens at runtime:**
+
+```
+Agent calls: Read("~/work/sandbox/pai-collab/EXTEND.yaml")
+    │
+    ▼
+Claude Code sees PreToolUse hook matches "Read"
+    │
+    ▼
+Spawns hook, pipes JSON to stdin:
+  {"tool_name": "Read", "tool_input": {"file_path": "~/work/sandbox/pai-collab/EXTEND.yaml"}}
+    │
+    ▼
+Hook checks:
+  1. Is tool Read/Glob/Grep?              → yes, continue
+  2. Is path inside SANDBOX_DIR?          → yes, continue
+  3. Does file exist?                     → yes, continue
+  4. Run filterContent(path)              → pipeline executes
+    │
+    ├── BLOCKED  → exit 2 → Claude Code PREVENTS the tool call
+    ├── ALLOWED  → exit 0 → Claude Code proceeds normally
+    └── REVIEW   → exit 0 → Claude Code proceeds (human review logged)
+```
+
+**Files outside the sandbox are never filtered.** The hook checks `filePath.startsWith(sandboxDir)` and exits 0 (passthrough) for anything else.
+
+**Fail-open design:** Any error (malformed stdin, missing file, regex crash) exits 0. The hook never blocks on infrastructure failure.
+
+### 2. CLI (manual checking)
+
+For pre-reviewing files before consuming them:
+
+```bash
+# Check a single file
+bun run src/cli.ts check path/to/EXTEND.yaml
+
+# JSON output for scripting
+bun run src/cli.ts check path/to/file.yaml --json
+
+# View audit trail
+bun run src/cli.ts audit --last 20
+
+# View loaded patterns
+bun run src/cli.ts config
+```
+
+Exit codes: 0 (ALLOWED/HUMAN_REVIEW), 1 (error), 2 (BLOCKED).
+
+### 3. Library (programmatic)
+
+For embedding the filter in other tools:
+
+```typescript
+import { filterContent, filterContentString } from "pai-content-filter";
+
+// Filter a file
+const result = filterContent("path/to/EXTEND.yaml");
+// result.decision: "ALLOWED" | "BLOCKED" | "HUMAN_REVIEW"
+
+// Filter a string (for testing or dynamic content)
+const result = filterContentString(content, "file.yaml", "yaml");
+
+// Create a typed reference from allowed content
+import { createTypedReference } from "pai-content-filter";
+const ref = createTypedReference(result, content, { name: "project" });
+
+// Override a blocked result (requires reason + approver)
+import { overrideDecision } from "pai-content-filter";
+const override = overrideDecision(result, content, "admin", "reviewed manually", auditConfig);
+```
+
+## The Filter Pipeline
+
+All three invocation paths run the same pipeline (defined in `src/lib/content-filter.ts`):
+
+```
+File → Detect Format → Encoding Detection → Schema Validation → Pattern Matching → Decision
+```
+
+| Step | What It Does | Short-Circuit |
+|------|-------------|---------------|
+| **1. Detect format** | Extension-based: `.yaml`/`.json`/`.md` | No |
+| **2. Encoding detection** | Base64, unicode escapes, hex, URL-encoded, HTML entities | Yes → BLOCKED |
+| **3. Schema validation** | Zod parse (YAML/JSON only) | Yes → BLOCKED |
+| **4. Pattern matching** | 36 regex patterns across 4 categories | No |
+| **5. Decision** | Any block-severity match → BLOCKED. Markdown → HUMAN_REVIEW. Clean structured → ALLOWED | — |
+
+**Markdown always gets HUMAN_REVIEW** even when clean — free text is inherently untrustable by regex alone.
+
 ## Architecture
 
 ```
-Shared Repository (pai-collab, Blackboard, PRs)
+External Sources (repos, PRs, downloads, artifacts)
+        │
+        ▼
+  SANDBOX DIRECTORY (~/work/sandbox/)
+  • All external content lands here
+  • Anything under this path is untrusted
         │
         ▼
   LAYER 1: Content Filter (F-001)
-  • Pattern matching (regex)
+  • Encoding detection (short-circuit)
   • Schema validation (Zod)
-  • Encoding rejection
+  • Pattern matching (36 patterns, ReDoS-protected)
   • BLOCK / ALLOW / HUMAN_REVIEW
         │
         ▼
   LAYER 2: Quarantined Context (F-004)
-  • MCP: Read ONLY
-  • No: Bash, Write, email, calendar, Tana
+  • MCP: Read ONLY (no Bash, Write, WebFetch)
   • Output: TypedReference with provenance (F-003)
         │
         ▼
-  PRIVILEGED CONTEXT (Kai)
+  PRIVILEGED CONTEXT (agent's own workspace)
   • Consumes typed references, not raw content
   • Full MCP access for own operations
         │
         ▼
   LAYER 3: Audit Trail (F-002)
   • Every decision logged (JSONL)
-  • Override requires reason
+  • Override requires reason + approver
   • Append-only, rotated at 10MB
 ```
 
@@ -50,62 +182,8 @@ Shared Repository (pai-collab, Blackboard, PRs)
 | F-002 | Audit Trail & Override | Complete | 36 |
 | F-003 | Typed References & Provenance | Complete | 33 |
 | F-004 | Tool-Restricted Sandboxing | Complete | 24 |
-| F-005 | Integration & Canary Suite | Complete | 120 |
-| | **Total** | **5/5** | **303** |
-
-## Usage
-
-```bash
-# Check a file against the content filter
-bun run src/cli.ts check path/to/EXTEND.yaml
-
-# Check with JSON output
-bun run src/cli.ts check path/to/file.yaml --json
-
-# View audit trail
-bun run src/cli.ts audit --last 20
-
-# View filter configuration
-bun run src/cli.ts config
-
-# Run all tests
-bun test
-
-# Type check
-bun run typecheck
-```
-
-### Library Usage
-
-```typescript
-import { filterContent, filterContentString } from "pai-content-filter";
-
-// Filter a file
-const result = filterContent("path/to/EXTEND.yaml");
-// result.decision: "ALLOWED" | "BLOCKED" | "HUMAN_REVIEW"
-
-// Filter a string
-const result = filterContentString(content, "file.yaml", "yaml");
-
-// Create a typed reference from allowed content
-import { createTypedReference } from "pai-content-filter";
-const ref = createTypedReference(result, content, { name: "project" });
-// ref is frozen — provenance immutable
-
-// Override a blocked result
-import { overrideDecision } from "pai-content-filter";
-const override = overrideDecision(result, content, "admin", "reviewed manually", auditConfig);
-```
-
-### PreToolUse Hook
-
-The hook at `hooks/ContentFilter.hook.ts` integrates with Claude Code's PreToolUse event. Set the `CONTENT_FILTER_SHARED_DIR` environment variable to the shared repository path:
-
-```bash
-CONTENT_FILTER_SHARED_DIR=/path/to/shared-repo bun run hooks/ContentFilter.hook.ts
-```
-
-The hook gates Read/Glob/Grep tool calls targeting shared repo paths. Exit codes: 0 (allow), 2 (block).
+| F-005 | Integration & Canary Suite | Complete | 121 |
+| | **Total** | **5/5** | **304** |
 
 ## Pattern Library
 
@@ -119,7 +197,14 @@ The hook gates Read/Glob/Grep tool calls targeting shared repo paths. Exit codes
 | PII (PII) | 8 | Credit cards, API keys (Anthropic/OpenAI/GitHub/AWS), PEM keys, emails, paths |
 | Encoding (EN) | 6 | Base64, unicode escapes, hex, URL-encoded, HTML entities |
 
-All patterns are regex-based, human-editable, and hot-reloadable (no restart required). ReDoS-protected via line truncation and time-bounded regex execution.
+All patterns are regex-based, human-editable, and hot-reloadable (no restart required). ReDoS-protected via line truncation (10KB) and time-bounded regex execution (500ms).
+
+## Environment Variables
+
+| Variable | Purpose | Required |
+|----------|---------|----------|
+| `CONTENT_FILTER_SANDBOX_DIR` | Directory containing untrusted external content | Yes (for hook) |
+| `CONTENT_FILTER_SHARED_DIR` | Deprecated alias — fallback if SANDBOX_DIR not set | No |
 
 ## Stack
 
@@ -148,7 +233,7 @@ The content filter provides practical defense-in-depth (pattern matching + tool 
 | [pai-secret-scanning](https://github.com/jcfischer/pai-secret-scanning) | Outbound security (no secrets in commits) |
 | [kai-improvement-roadmap](https://github.com/jcfischer/kai-improvement-roadmap) | Parent roadmap containing F-088 |
 
-Together, `pai-secret-scanning` (outbound) and `pai-content-filter` (inbound) form the complete security gate for Blackboard engagement.
+Together, `pai-secret-scanning` (outbound) and `pai-content-filter` (inbound) form the complete security gate for external collaboration.
 
 ## pai-collab Issues
 
