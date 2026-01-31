@@ -7,7 +7,7 @@ Inbound content security for [PAI](https://github.com/danielmiessler/PAI) cross-
 Defense-in-depth security architecture for when PAI agents consume shared repository content. Three layers protect against prompt injection, data exfiltration, and trust model abuse:
 
 1. **Layer 1 — Content Filter** (F-001): Deterministic pattern matching, schema validation, and encoding detection. Catches known attack patterns.
-2. **Layer 2 — Architectural Isolation** (F-004): CaMeL-inspired dual-context separation. Quarantined agent processes untrusted content with no access to personal tools or data. Primary defense.
+2. **Layer 2 — Architectural Isolation** (F-004): Tool-restricted sandbox. Quarantined agent processes untrusted content with no access to personal tools or data. Primary defense.
 3. **Layer 3 — Audit + Override** (F-002): Human-in-the-loop with persistent accountability trail. Last line of defense.
 
 **Key principle:** Pattern matching is necessary but insufficient. Layer 2 must hold even when Layer 1 is completely bypassed.
@@ -49,7 +49,7 @@ Shared Repository (pai-collab, Blackboard, PRs)
 | F-001 | Content Filter Engine | Complete | 90 |
 | F-002 | Audit Trail & Override | Complete | 36 |
 | F-003 | Typed References & Provenance | Complete | 33 |
-| F-004 | Dual-Context Sandboxing | Complete | 24 |
+| F-004 | Tool-Restricted Sandboxing | Complete | 24 |
 | F-005 | Integration & Canary Suite | Complete | 92 |
 | | **Total** | **5/5** | **275** |
 
@@ -126,6 +126,19 @@ All patterns are regex-based, human-editable, and hot-reloadable (no restart req
 - Zod (schema validation)
 - No other external dependencies
 
+## Relationship to CaMeL
+
+This project draws architectural inspiration from [CaMeL (arXiv:2503.18813)](https://arxiv.org/abs/2503.18813) but diverges in significant ways. Understanding these differences is important for assessing the security properties:
+
+| CaMeL Property | This Project | Gap |
+|----------------|-------------|-----|
+| **Taint propagation** — tracks data provenance through execution | Gate (allow/block at entry) | No flow tracking after gate |
+| **Dual-LLM split** — control plane never sees untrusted content | Single LLM with restricted tool set | Sandbox LLM has full access to untrusted content |
+| **Unforgeable capability tokens** | SHA-256 content hashes (no MAC/signature) | Forgeable across process boundaries |
+| **Reasoning-based classification** | Regex pattern matching (deterministic) | Intentional — constitution requires "no LLM classification" |
+
+The content filter provides practical defense-in-depth (pattern matching + tool restriction + audit trail) but does not achieve CaMeL's formal security guarantees, which require taint propagation.
+
 ## Related Projects
 
 | Project | Purpose |
@@ -145,7 +158,7 @@ Together, `pai-secret-scanning` (outbound) and `pai-content-filter` (inbound) fo
 
 ## Research References
 
-- [CaMeL: Defeating Prompt Injections by Design](https://arxiv.org/abs/2503.18813) — DeepMind, 2025. Architectural defense using Dual LLM pattern.
+- [CaMeL: Defeating Prompt Injections by Design](https://arxiv.org/abs/2503.18813) — DeepMind, 2025. Architectural inspiration; this project implements a subset (see "Relationship to CaMeL" above).
 - [Simon Willison on CaMeL](https://simonwillison.net/2025/Apr/11/camel/) — "99% is a failing grade" for security.
 - [Moltbook](https://www.moltbook.com) — Live case study: 151k+ agents, real-world injection failures at scale (2026-01-29).
 - [Simon Willison on Moltbook](https://simonwillison.net/2026/Jan/30/moltbook/) — "Normalization of Deviance" in agent systems.

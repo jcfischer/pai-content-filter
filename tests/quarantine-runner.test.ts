@@ -82,7 +82,7 @@ describe("CrossProjectProfile", () => {
     expect(profile.allowedTools).toContain("Read");
     expect(profile.allowedTools).toContain("Glob");
     expect(profile.allowedTools).toContain("Grep");
-    expect(profile.allowedTools).toContain("WebFetch");
+    expect(profile.allowedTools).not.toContain("WebFetch");
   });
 
   test("profile denies write/execute tools", () => {
