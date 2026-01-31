@@ -1,0 +1,425 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+      .title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; fill: #e2e8f0; }
+      .subtitle { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 15px; fill: #94a3b8; }
+      .section-title { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; }
+      .label { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 13px; }
+      .small-label { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 11px; }
+      .mono { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+      .insight { font-family: 'Inter', sans-serif; font-weight: 500; font-style: italic; font-size: 11px; }
+    </style>
+    <!-- Glow filter for accents -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Subtle shadow -->
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <!-- Arrow markers -->
+    <marker id="arrow-blue" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+    <!-- Gradient backgrounds -->
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0e1a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="card-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="filter-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="1000" fill="url(#bg-grad)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.03">
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(100,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(200,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(300,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(400,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(500,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(600,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(700,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(800,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(900,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(1000,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(1100,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(1200,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(1300,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(1400,0)"/>
+    <line x1="0" y1="0" x2="0" y2="1000" stroke="#93c5fd" stroke-width="1" transform="translate(1500,0)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,100)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,200)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,300)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,400)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,500)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,600)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,700)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,800)"/>
+    <line x1="0" y1="0" x2="1600" y2="0" stroke="#93c5fd" stroke-width="1" transform="translate(0,900)"/>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- HEADER -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <text x="50" y="45" class="title">pai-content-filter + Blackboard Integration</text>
+  <text x="50" y="68" class="subtitle">Defense-in-depth security for cross-operator content in pai-collab</text>
+
+  <!-- PAI badge -->
+  <rect x="1460" y="22" width="110" height="30" rx="4" fill="#1e3a8a" opacity="0.6"/>
+  <text x="1515" y="42" class="small-label" fill="#93c5fd" text-anchor="middle">PAI v2.5</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- LEFT: SHARED BLACKBOARD -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Main container -->
+  <rect x="40" y="100" width="360" height="560" rx="12" fill="url(#card-grad)" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Section header bar -->
+  <rect x="40" y="100" width="360" height="44" rx="12" fill="#1e3a8a" opacity="0.4"/>
+  <rect x="40" y="132" width="360" height="12" fill="#1e3a8a" opacity="0.4"/>
+  <text x="220" y="128" class="section-title" fill="#93c5fd" text-anchor="middle">SHARED BLACKBOARD</text>
+  <text x="220" y="160" class="small-label" fill="#64748b" text-anchor="middle">pai-collab  |  Level 2  |  Fork + PR only</text>
+
+  <!-- Repository contents -->
+  <rect x="65" y="180" width="310" height="140" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="80" y="200" class="label" fill="#cbd5e1">Repository Contents</text>
+
+  <!-- File icons -->
+  <rect x="80" y="215" width="120" height="28" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="90" y="234" class="mono" fill="#93c5fd">PROJECT.yaml</text>
+
+  <rect x="210" y="215" width="120" height="28" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="220" y="234" class="mono" fill="#93c5fd">REGISTRY.md</text>
+
+  <rect x="80" y="252" width="120" height="28" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="90" y="271" class="mono" fill="#93c5fd">sops/*.md</text>
+
+  <rect x="210" y="252" width="120" height="28" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="220" y="271" class="mono" fill="#93c5fd">reviews/*.md</text>
+
+  <rect x="80" y="289" width="250" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="90" y="305" class="mono" fill="#64748b">CONTRIBUTORS.yaml  TRUST-MODEL.md</text>
+
+  <!-- Operators -->
+  <rect x="65" y="340" width="310" height="95" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="80" y="360" class="label" fill="#cbd5e1">Contributing Operators</text>
+
+  <!-- Operator A -->
+  <circle cx="95" cy="395" r="16" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="95" y="400" class="small-label" fill="#e2e8f0" text-anchor="middle">A</text>
+  <text x="120" y="400" class="small-label" fill="#94a3b8">Operator A (maintainer)</text>
+
+  <!-- Operator B -->
+  <circle cx="95" cy="420" r="16" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="95" y="425" class="small-label" fill="#e2e8f0" text-anchor="middle">B</text>
+  <text x="120" y="425" class="small-label" fill="#94a3b8">Operator B (untrusted)</text>
+
+  <!-- Threat vectors -->
+  <rect x="65" y="455" width="310" height="185" rx="8" fill="#0f172a" stroke="#7f1d1d" stroke-width="1" stroke-dasharray="4 2"/>
+  <text x="80" y="478" class="label" fill="#fca5a5">Threat Vectors</text>
+
+  <!-- Threat 1 -->
+  <rect x="80" y="490" width="280" height="38" rx="4" fill="#450a0a" stroke="#7f1d1d" stroke-width="1"/>
+  <text x="95" y="506" class="small-label" fill="#fca5a5">1. Prompt Injection</text>
+  <text x="95" y="520" class="mono" fill="#64748b">"Ignore previous instructions and..."</text>
+
+  <!-- Threat 2 -->
+  <rect x="80" y="535" width="280" height="38" rx="4" fill="#450a0a" stroke="#7f1d1d" stroke-width="1"/>
+  <text x="95" y="551" class="small-label" fill="#fca5a5">2. Data Exfiltration</text>
+  <text x="95" y="565" class="mono" fill="#64748b">"Send ~/.claude/USER/ to attacker@..."</text>
+
+  <!-- Threat 3 -->
+  <rect x="80" y="580" width="280" height="38" rx="4" fill="#450a0a" stroke="#7f1d1d" stroke-width="1"/>
+  <text x="95" y="596" class="small-label" fill="#fca5a5">3. Trust Model Abuse</text>
+  <text x="95" y="610" class="mono" fill="#64748b">Low-bar membership + malicious payloads</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CENTER: CONTENT FILTER BOUNDARY -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Main boundary container -->
+  <rect x="450" y="100" width="540" height="560" rx="12" fill="url(#filter-grad)" stroke="#1e3a8a" stroke-width="2" filter="url(#shadow)"/>
+
+  <!-- Boundary header -->
+  <rect x="450" y="100" width="540" height="44" rx="12" fill="#1e3a8a" opacity="0.6"/>
+  <rect x="450" y="132" width="540" height="12" fill="#1e3a8a" opacity="0.6"/>
+
+  <!-- Shield icon -->
+  <path d="M715,112 L720,108 L725,112 L725,122 Q720,128 715,122 Z" fill="#3b82f6" stroke="#93c5fd" stroke-width="1"/>
+  <text x="720" y="128" class="section-title" fill="#e2e8f0" text-anchor="middle">CONTENT FILTER BOUNDARY</text>
+  <text x="720" y="160" class="small-label" fill="#64748b" text-anchor="middle">pai-content-filter  |  Defense-in-Depth  |  Deterministic Only</text>
+
+  <!-- LAYER 1: Content Filter -->
+  <rect x="475" y="180" width="490" height="145" rx="8" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Layer 1 badge -->
+  <rect x="490" y="175" width="90" height="20" rx="4" fill="#1e3a8a"/>
+  <text x="535" y="189" class="small-label" fill="#93c5fd" text-anchor="middle">LAYER 1</text>
+
+  <text x="600" y="189" class="label" fill="#e2e8f0">Content Filter Engine (F-001)</text>
+
+  <!-- Pipeline steps -->
+  <rect x="490" y="205" width="105" height="50" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="542" y="225" class="small-label" fill="#cbd5e1" text-anchor="middle">Format</text>
+  <text x="542" y="240" class="small-label" fill="#cbd5e1" text-anchor="middle">Detection</text>
+
+  <line x1="600" y1="230" x2="618" y2="230" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <rect x="622" y="205" width="105" height="50" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="674" y="225" class="small-label" fill="#cbd5e1" text-anchor="middle">Encoding</text>
+  <text x="674" y="240" class="small-label" fill="#cbd5e1" text-anchor="middle">Detection</text>
+
+  <line x1="732" y1="230" x2="750" y2="230" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <rect x="754" y="205" width="105" height="50" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="806" y="225" class="small-label" fill="#cbd5e1" text-anchor="middle">Schema +</text>
+  <text x="806" y="240" class="small-label" fill="#cbd5e1" text-anchor="middle">Pattern Match</text>
+
+  <line x1="864" y1="230" x2="882" y2="230" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <rect x="886" y="205" width="65" height="50" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="918" y="230" class="small-label" fill="#cbd5e1" text-anchor="middle">Decide</text>
+
+  <!-- Decision outcomes -->
+  <rect x="490" y="268" width="80" height="24" rx="4" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="530" y="284" class="small-label" fill="#4ade80" text-anchor="middle">ALLOWED</text>
+
+  <rect x="580" y="268" width="80" height="24" rx="4" fill="#450a0a" stroke="#ef4444" stroke-width="1"/>
+  <text x="620" y="284" class="small-label" fill="#fca5a5" text-anchor="middle">BLOCKED</text>
+
+  <rect x="670" y="268" width="115" height="24" rx="4" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="728" y="284" class="small-label" fill="#fcd34d" text-anchor="middle">HUMAN_REVIEW</text>
+
+  <!-- Insight: Layer 1 -->
+  <text x="820" y="286" class="insight" fill="#3b82f6">*necessary but insufficient*</text>
+
+  <!-- LAYER 2: Quarantine Sandbox -->
+  <rect x="475" y="340" width="490" height="130" rx="8" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Layer 2 badge -->
+  <rect x="490" y="335" width="90" height="20" rx="4" fill="#1e3a8a"/>
+  <text x="535" y="349" class="small-label" fill="#93c5fd" text-anchor="middle">LAYER 2</text>
+
+  <text x="600" y="349" class="label" fill="#e2e8f0">Quarantine Sandbox (F-004)</text>
+
+  <!-- Allowed tools -->
+  <rect x="490" y="365" width="220" height="55" rx="6" fill="#14532d" opacity="0.3" stroke="#22c55e" stroke-width="1"/>
+  <text x="505" y="383" class="small-label" fill="#4ade80">Allowed (read-only)</text>
+  <text x="505" y="400" class="mono" fill="#86efac">Read  Glob  Grep  WebFetch</text>
+
+  <!-- Denied tools -->
+  <rect x="725" y="365" width="225" height="55" rx="6" fill="#450a0a" opacity="0.3" stroke="#ef4444" stroke-width="1"/>
+  <text x="740" y="383" class="small-label" fill="#fca5a5">Denied (all personal tools)</text>
+  <text x="740" y="400" class="mono" fill="#fca5a5">Bash Write Email Calendar</text>
+  <text x="740" y="414" class="mono" fill="#fca5a5">Tana Tado Finance Edit</text>
+
+  <!-- CaMeL note -->
+  <text x="490" y="450" class="insight" fill="#3b82f6">*primary defense  |  CaMeL-inspired  |  99% is a failing grade*</text>
+
+  <!-- LAYER 3: Audit Trail -->
+  <rect x="475" y="495" width="490" height="80" rx="8" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Layer 3 badge -->
+  <rect x="490" y="490" width="90" height="20" rx="4" fill="#1e3a8a"/>
+  <text x="535" y="504" class="small-label" fill="#93c5fd" text-anchor="middle">LAYER 3</text>
+
+  <text x="600" y="504" class="label" fill="#e2e8f0">Audit Trail + Override (F-002)</text>
+
+  <rect x="490" y="515" width="155" height="40" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="505" y="533" class="small-label" fill="#cbd5e1">Append-Only JSONL</text>
+  <text x="505" y="547" class="mono" fill="#64748b">audit-YYYY-MM.jsonl</text>
+
+  <rect x="660" y="515" width="155" height="40" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="675" y="533" class="small-label" fill="#cbd5e1">Override Mechanism</text>
+  <text x="675" y="547" class="mono" fill="#64748b">approver + reason req.</text>
+
+  <rect x="830" y="515" width="120" height="40" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="845" y="533" class="small-label" fill="#cbd5e1">No Precedent</text>
+  <text x="845" y="547" class="mono" fill="#64748b">one-time only</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TYPED REFERENCE (bridge) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <rect x="530" y="600" width="380" height="170" rx="8" fill="#0f172a" stroke="#22c55e" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Badge -->
+  <rect x="545" y="595" width="140" height="20" rx="4" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="615" y="609" class="small-label" fill="#4ade80" text-anchor="middle">TypedReference (F-003)</text>
+
+  <!-- Fields -->
+  <text x="550" y="634" class="mono" fill="#4ade80">id:</text>
+  <text x="625" y="634" class="mono" fill="#94a3b8">550e8400-e29b-41d4-a716-...</text>
+
+  <text x="550" y="652" class="mono" fill="#4ade80">origin:</text>
+  <text x="625" y="652" class="mono" fill="#94a3b8">"pai-collab/blackboard"</text>
+
+  <text x="550" y="670" class="mono" fill="#4ade80">trust_level:</text>
+  <text x="655" y="670" class="mono" fill="#fca5a5">"untrusted"</text>
+  <text x="745" y="670" class="insight" fill="#64748b">always</text>
+
+  <text x="550" y="688" class="mono" fill="#4ade80">content_hash:</text>
+  <text x="660" y="688" class="mono" fill="#94a3b8">SHA-256 hex (64 chars)</text>
+
+  <text x="550" y="706" class="mono" fill="#4ade80">filter_result:</text>
+  <text x="660" y="706" class="mono" fill="#94a3b8">"PASSED" | "OVERRIDE" | "HUMAN_APPROVED"</text>
+
+  <text x="550" y="724" class="mono" fill="#4ade80">data:</text>
+  <text x="625" y="724" class="mono" fill="#94a3b8">{ structured extract, not raw }</text>
+
+  <text x="550" y="748" class="insight" fill="#22c55e">*frozen (Object.freeze)  |  immutable provenance*</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- RIGHT: PRIVILEGED AGENT CONTEXT -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <rect x="1050" y="100" width="510" height="560" rx="12" fill="url(#card-grad)" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Section header -->
+  <rect x="1050" y="100" width="510" height="44" rx="12" fill="#14532d" opacity="0.4"/>
+  <rect x="1050" y="132" width="510" height="12" fill="#14532d" opacity="0.4"/>
+  <text x="1305" y="128" class="section-title" fill="#4ade80" text-anchor="middle">PRIVILEGED AGENT CONTEXT</text>
+  <text x="1305" y="160" class="small-label" fill="#64748b" text-anchor="middle">Kai  |  Level 1 (Personal Board)  |  Full MCP Access</text>
+
+  <!-- What Kai receives -->
+  <rect x="1075" y="180" width="460" height="85" rx="8" fill="#0f172a" stroke="#22c55e" stroke-width="1"/>
+  <text x="1090" y="204" class="label" fill="#4ade80">Receives: TypedReferences Only</text>
+  <text x="1090" y="224" class="small-label" fill="#94a3b8">Structured data with provenance metadata</text>
+  <text x="1090" y="244" class="small-label" fill="#94a3b8">All cross-project content treated as untrusted input</text>
+
+  <!-- Full MCP Access -->
+  <rect x="1075" y="285" width="460" height="185" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="1090" y="308" class="label" fill="#cbd5e1">Full MCP Tool Access</text>
+
+  <!-- Tool grid -->
+  <rect x="1090" y="320" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1137" y="340" class="small-label" fill="#93c5fd" text-anchor="middle">Bash</text>
+
+  <rect x="1195" y="320" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1242" y="340" class="small-label" fill="#93c5fd" text-anchor="middle">Write</text>
+
+  <rect x="1300" y="320" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1347" y="340" class="small-label" fill="#93c5fd" text-anchor="middle">Edit</text>
+
+  <rect x="1405" y="320" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1452" y="340" class="small-label" fill="#93c5fd" text-anchor="middle">Email</text>
+
+  <rect x="1090" y="360" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1137" y="380" class="small-label" fill="#93c5fd" text-anchor="middle">Calendar</text>
+
+  <rect x="1195" y="360" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1242" y="380" class="small-label" fill="#93c5fd" text-anchor="middle">Tana</text>
+
+  <rect x="1300" y="360" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1347" y="380" class="small-label" fill="#93c5fd" text-anchor="middle">Tado</text>
+
+  <rect x="1405" y="360" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1452" y="380" class="small-label" fill="#93c5fd" text-anchor="middle">Finance</text>
+
+  <rect x="1090" y="400" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1137" y="420" class="small-label" fill="#93c5fd" text-anchor="middle">Read</text>
+
+  <rect x="1195" y="400" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1242" y="420" class="small-label" fill="#93c5fd" text-anchor="middle">Glob</text>
+
+  <rect x="1300" y="400" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1347" y="420" class="small-label" fill="#93c5fd" text-anchor="middle">WebFetch</text>
+
+  <rect x="1405" y="400" width="95" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1452" y="420" class="small-label" fill="#93c5fd" text-anchor="middle">+ more</text>
+
+  <!-- Protected personal context -->
+  <rect x="1075" y="490" width="460" height="90" rx="8" fill="#0f172a" stroke="#22c55e" stroke-width="1" stroke-dasharray="4 2"/>
+
+  <!-- Lock icon -->
+  <rect x="1090" y="510" width="14" height="10" rx="2" fill="none" stroke="#22c55e" stroke-width="1.5"/>
+  <path d="M1092,510 L1092,506 Q1097,498 1102,506 L1102,510" fill="none" stroke="#22c55e" stroke-width="1.5"/>
+
+  <text x="1112" y="520" class="label" fill="#4ade80">Personal Context Protected</text>
+  <text x="1090" y="543" class="small-label" fill="#94a3b8">~/.claude/skills/CORE/USER/ - contacts, health, finances</text>
+  <text x="1090" y="560" class="small-label" fill="#94a3b8">Tana workspaces - personal knowledge base</text>
+  <text x="1090" y="577" class="small-label" fill="#94a3b8">Email, calendar - private communications</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FLOW ARROWS -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Blackboard → Content Filter -->
+  <line x1="400" y1="350" x2="445" y2="350" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="422" y="340" class="small-label" fill="#3b82f6" text-anchor="middle">read</text>
+
+  <!-- Content Filter → Privileged (allowed path) -->
+  <line x1="990" y1="250" x2="1045" y2="250" stroke="#22c55e" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+
+  <!-- TypedReference → Privileged -->
+  <path d="M910,690 Q1000,690 1050,350" fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arrow-green)"/>
+  <text x="985" y="520" class="small-label" fill="#22c55e" text-anchor="middle" transform="rotate(-50, 985, 520)">TypedRef</text>
+
+  <!-- BLOCKED arrow (going down/out) -->
+  <line x1="620" y1="300" x2="620" y2="328" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red)"/>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- ONE-WAY DATA FLOW INDICATOR -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Reverse arrow with red X -->
+  <line x1="1045" y1="430" x2="995" y2="430" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.4"/>
+
+  <!-- Red X -->
+  <circle cx="1020" cy="430" r="12" fill="#450a0a" stroke="#ef4444" stroke-width="1.5"/>
+  <line x1="1014" y1="424" x2="1026" y2="436" stroke="#ef4444" stroke-width="2.5"/>
+  <line x1="1026" y1="424" x2="1014" y2="436" stroke="#ef4444" stroke-width="2.5"/>
+  <text x="1020" y="458" class="small-label" fill="#fca5a5" text-anchor="middle">one-way only</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- BOTTOM: KEY PRINCIPLES -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <rect x="40" y="800" width="1520" height="170" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+
+  <text x="60" y="830" class="section-title" fill="#93c5fd">Key Principles</text>
+
+  <!-- Principle cards -->
+  <rect x="60" y="845" width="280" height="55" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="75" y="865" class="label" fill="#3b82f6">Deterministic Filtering</text>
+  <text x="75" y="885" class="small-label" fill="#94a3b8">Regex + Zod only. No LLM. Fully offline.</text>
+
+  <rect x="360" y="845" width="280" height="55" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="375" y="865" class="label" fill="#3b82f6">Architecture Over Prompts</text>
+  <text x="375" y="885" class="small-label" fill="#94a3b8">MCP isolation, not prompt instructions.</text>
+
+  <rect x="660" y="845" width="280" height="55" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="675" y="865" class="label" fill="#3b82f6">Fail-Closed by Default</text>
+  <text x="675" y="885" class="small-label" fill="#94a3b8">Free-text always requires human review.</text>
+
+  <rect x="960" y="845" width="280" height="55" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="975" y="865" class="label" fill="#3b82f6">Override Without Precedent</text>
+  <text x="975" y="885" class="small-label" fill="#94a3b8">One-time approval. No whitelist created.</text>
+
+  <rect x="1260" y="845" width="280" height="55" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="1275" y="865" class="label" fill="#3b82f6">Immutable Provenance</text>
+  <text x="1275" y="885" class="small-label" fill="#94a3b8">Frozen TypedRef. Cannot tamper origin.</text>
+
+  <!-- Research references -->
+  <text x="60" y="935" class="small-label" fill="#64748b">Based on: CaMeL Framework (DeepMind, 2025) + Moltbook Incident Analysis (2026-01-29) + Hayes-Roth Blackboard Architecture (1985)</text>
+  <text x="60" y="955" class="small-label" fill="#475569">pai-content-filter v0.1  |  F-001 through F-005  |  github.com/danielmiessler/PAI</text>
+
+</svg>
