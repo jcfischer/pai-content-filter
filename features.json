@@ -1,0 +1,37 @@
+[
+  {
+    "id": "F-001",
+    "name": "Content Filter Engine",
+    "description": "Pattern matching engine, schema validation, encoding detection, YAML-based pattern library, CLI and library interfaces. Foundation for all other features.",
+    "dependencies": [],
+    "priority": 1
+  },
+  {
+    "id": "F-002",
+    "name": "Audit Trail & Override",
+    "description": "Append-only JSONL audit logging for all content operations, human override mechanism with accountability, log rotation.",
+    "dependencies": ["F-001"],
+    "priority": 2
+  },
+  {
+    "id": "F-003",
+    "name": "Typed References & Provenance",
+    "description": "TypedReference builder with immutable provenance metadata (origin, trust_level, content_hash, filter_result). Cross-process transfer format.",
+    "dependencies": ["F-001"],
+    "priority": 3
+  },
+  {
+    "id": "F-004",
+    "name": "Dual-Context Sandboxing",
+    "description": "CaMeL-inspired quarantined/privileged context separation via MCP profiles. Quarantine runner spawns isolated k sessions.",
+    "dependencies": ["F-001", "F-003"],
+    "priority": 4
+  },
+  {
+    "id": "F-005",
+    "name": "Integration & Canary Suite",
+    "description": "PreToolUse hook integration, adversarial canary test payloads (injection, encoding, exfiltration, tool invocation, benign), end-to-end pipeline tests, red team validation.",
+    "dependencies": ["F-001", "F-002", "F-003", "F-004"],
+    "priority": 5
+  }
+]

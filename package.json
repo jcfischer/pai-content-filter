@@ -1,0 +1,22 @@
+{
+  "name": "pai-content-filter",
+  "version": "0.1.0",
+  "description": "Inbound content security for PAI cross-project collaboration",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "check": "bun run src/cli.ts check",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
