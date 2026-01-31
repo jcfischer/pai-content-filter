@@ -50,8 +50,8 @@ Shared Repository (pai-collab, Blackboard, PRs)
 | F-002 | Audit Trail & Override | Complete | 36 |
 | F-003 | Typed References & Provenance | Complete | 33 |
 | F-004 | Tool-Restricted Sandboxing | Complete | 24 |
-| F-005 | Integration & Canary Suite | Complete | 92 |
-| | **Total** | **5/5** | **275** |
+| F-005 | Integration & Canary Suite | Complete | 120 |
+| | **Total** | **5/5** | **303** |
 
 ## Usage
 
@@ -109,16 +109,17 @@ The hook gates Read/Glob/Grep tool calls targeting shared repo paths. Exit codes
 
 ## Pattern Library
 
-28 detection patterns across 3 categories + 6 encoding rules, defined in `config/filter-patterns.yaml`:
+36 detection patterns across 4 categories + 6 encoding rules, defined in `config/filter-patterns.yaml`:
 
 | Category | Patterns | Examples |
 |----------|----------|---------|
 | Injection (PI) | 11 | System prompt override, role-play, jailbreak, delimiter injection |
 | Exfiltration (EX) | 5 | Path traversal, network exfil, clipboard, env leak |
 | Tool Invocation (TI) | 6 | Shell commands, code execution, MCP tool invoke |
+| PII (PII) | 8 | Credit cards, API keys (Anthropic/OpenAI/GitHub/AWS), PEM keys, emails, paths |
 | Encoding (EN) | 6 | Base64, unicode escapes, hex, URL-encoded, HTML entities |
 
-All patterns are regex-based, human-editable, and hot-reloadable (no restart required).
+All patterns are regex-based, human-editable, and hot-reloadable (no restart required). ReDoS-protected via line truncation and time-bounded regex execution.
 
 ## Stack
 
