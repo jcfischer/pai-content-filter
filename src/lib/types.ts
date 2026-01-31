@@ -181,3 +181,32 @@ export interface ProvenanceResult {
   valid: boolean;
   errors: string[];
 }
+
+// --- Quarantine Types (F-004) ---
+
+export const CrossProjectProfileSchema = z.object({
+  name: z.string(),
+  allowedTools: z.array(z.string()),
+  deniedTools: z.array(z.string()),
+  deniedPaths: z.array(z.string()),
+});
+export type CrossProjectProfile = z.infer<typeof CrossProjectProfileSchema>;
+
+export interface QuarantineConfig {
+  timeoutMs: number;
+  profilePath: string;
+  command?: string;
+}
+
+export const DEFAULT_QUARANTINE_CONFIG: Omit<QuarantineConfig, "profilePath"> = {
+  timeoutMs: 30_000,
+};
+
+export interface QuarantineResult {
+  success: boolean;
+  references: TypedReference[];
+  errors: string[];
+  durationMs: number;
+  filesProcessed: number;
+  exitCode: number | null;
+}

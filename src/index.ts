@@ -21,8 +21,14 @@ export {
   extractOrigin,
 } from "./lib/typed-reference";
 export {
+  runQuarantine,
+  loadProfile,
+  buildDefaultConfig,
+} from "./lib/quarantine-runner";
+export {
   TypedReferenceSchema,
   TypedReferenceFilterResult,
+  CrossProjectProfileSchema,
 } from "./lib/types";
 export type {
   FilterConfig,

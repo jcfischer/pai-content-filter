@@ -1,0 +1,20 @@
+{
+  "name": "cross-project",
+  "allowedTools": [
+    "Read",
+    "Glob",
+    "Grep",
+    "WebFetch"
+  ],
+  "deniedTools": [
+    "Bash",
+    "Write",
+    "Edit",
+    "NotebookEdit",
+    "Task",
+    "Skill"
+  ],
+  "deniedPaths": [
+    "~/.claude/skills/CORE/USER/"
+  ]
+}
