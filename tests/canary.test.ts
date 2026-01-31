@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { filterContentString } from "../src/lib/content-filter";
+import { luhnCheck, matchPatterns, loadConfig } from "../src/lib/pattern-matcher";
 import type { FilterResult } from "../src/lib/types";
 
 // ============================================================
@@ -674,6 +675,271 @@ describe("Benign content -- false positive validation", () => {
 
     const fpRate = falseBlocked / totalBenign;
     expect(fpRate).toBeLessThan(0.05);
+  });
+});
+
+// ============================================================
+// PII Canaries (PII-001 through PII-008)
+//
+// Note: Long API keys (PII-002, -003, -004) naturally trigger the
+// base64 encoding detector (EN-001) because they contain 21+ chars
+// of [A-Za-z0-9]. This is correct defense-in-depth: the encoding
+// layer catches them first. We test those patterns directly via
+// matchPatterns to prove the regex works, then verify the pipeline
+// blocks them (via encoding detection).
+// ============================================================
+
+describe("PII canaries", () => {
+  // --- Patterns testable through full pipeline ---
+
+  test("PII-001: credit_card_number -- Visa test number", () => {
+    const result = filterYaml(
+      yamlWithPayload("card number is 4111111111111111 on file")
+    );
+    expect(result.decision).toBe("BLOCKED");
+    expect(result.matches.some((m) => m.pattern_id === "PII-001")).toBe(true);
+  });
+
+  test("PII-001: credit_card_number -- Mastercard test number", () => {
+    const result = filterYaml(
+      yamlWithPayload("payment with 5500000000000004 accepted")
+    );
+    expect(result.decision).toBe("BLOCKED");
+    expect(result.matches.some((m) => m.pattern_id === "PII-001")).toBe(true);
+  });
+
+  test("PII-005: api_key_aws -- AWS Access Key ID", () => {
+    const result = filterYaml(
+      yamlWithPayload("AWS key AKIAIOSFODNN7EXAMPLE found")
+    );
+    expect(result.decision).toBe("BLOCKED");
+    expect(result.matches.some((m) => m.pattern_id === "PII-005")).toBe(true);
+  });
+
+  test("PII-006: private_key_pem -- RSA private key header", () => {
+    const result = filterYaml(
+      yamlWithPayload("-----BEGIN RSA PRIVATE KEY----- found in repo")
+    );
+    expect(result.decision).toBe("BLOCKED");
+    expect(result.matches.some((m) => m.pattern_id === "PII-006")).toBe(true);
+  });
+
+  test("PII-006: private_key_pem -- generic private key header", () => {
+    const result = filterYaml(
+      yamlWithPayload("-----BEGIN PRIVATE KEY----- detected in file")
+    );
+    expect(result.decision).toBe("BLOCKED");
+    expect(result.matches.some((m) => m.pattern_id === "PII-006")).toBe(true);
+  });
+
+  test("PII-007: email_address -- review severity in YAML is ALLOWED", () => {
+    const result = filterYaml(
+      yamlWithPayload("contact dev@example.com for details")
+    );
+    expect(result.matches.some((m) => m.pattern_id === "PII-007")).toBe(true);
+    expect(result.decision).toBe("ALLOWED");
+  });
+
+  test("PII-007: email_address -- review severity in markdown is HUMAN_REVIEW", () => {
+    const result = filterMarkdown(
+      "# Contact\n\nReach out to dev@example.com for questions"
+    );
+    expect(result.matches.some((m) => m.pattern_id === "PII-007")).toBe(true);
+    expect(result.decision).toBe("HUMAN_REVIEW");
+  });
+
+  test("PII-008: hardcoded_user_path -- macOS path (review severity)", () => {
+    // Use short username to avoid triggering base64 detection
+    const result = filterYaml(
+      yamlWithPayload("at /Users/jd/conf")
+    );
+    expect(result.matches.some((m) => m.pattern_id === "PII-008")).toBe(true);
+    expect(result.decision).toBe("ALLOWED");
+  });
+
+  test("PII-008: hardcoded_user_path -- Linux home path (review severity)", () => {
+    const result = filterYaml(
+      yamlWithPayload("in /home/dev/cfg")
+    );
+    expect(result.matches.some((m) => m.pattern_id === "PII-008")).toBe(true);
+    expect(result.decision).toBe("ALLOWED");
+  });
+
+  test("PII-008: hardcoded_user_path -- Windows path (review severity)", () => {
+    const result = filterMarkdown(
+      "# Setup\n\nInstall to C:\\Users\\JD\\App"
+    );
+    expect(result.matches.some((m) => m.pattern_id === "PII-008")).toBe(true);
+    expect(result.decision).toBe("HUMAN_REVIEW");
+  });
+
+  // --- API key patterns: tested via matchPatterns (base64 catches them first in pipeline) ---
+
+  test("PII-002: api_key_anthropic -- regex matches sk-ant key", () => {
+    const config = loadConfig(
+      require("path").resolve(import.meta.dir, "../config/filter-patterns.yaml")
+    );
+    const pii002 = config.patterns.filter((p) => p.id === "PII-002");
+    const matches = matchPatterns(
+      "key sk-ant-api03-abcdefghijklmnopqrstuvwxyz here",
+      pii002
+    );
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]!.pattern_id).toBe("PII-002");
+  });
+
+  test("PII-002: pipeline blocks Anthropic key (via encoding defense-in-depth)", () => {
+    const result = filterYaml(
+      yamlWithPayload("key sk-ant-api03-abcdefghijklmnopqrstuvwxyz here")
+    );
+    expect(result.decision).toBe("BLOCKED");
+  });
+
+  test("PII-003: api_key_openai -- regex matches sk- key", () => {
+    const config = loadConfig(
+      require("path").resolve(import.meta.dir, "../config/filter-patterns.yaml")
+    );
+    const pii003 = config.patterns.filter((p) => p.id === "PII-003");
+    const matches = matchPatterns(
+      "using sk-abcdefghijklmnopqrstuvwxyz01234567 for API",
+      pii003
+    );
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]!.pattern_id).toBe("PII-003");
+  });
+
+  test("PII-003: api_key_openai -- does not match Anthropic keys", () => {
+    const config = loadConfig(
+      require("path").resolve(import.meta.dir, "../config/filter-patterns.yaml")
+    );
+    const pii003 = config.patterns.filter((p) => p.id === "PII-003");
+    const matches = matchPatterns(
+      "key sk-ant-api03-abcdefghijklmnopqrstuvwxyz here",
+      pii003
+    );
+    expect(matches.length).toBe(0);
+  });
+
+  test("PII-004: api_key_github_pat -- regex matches ghp_ token", () => {
+    const config = loadConfig(
+      require("path").resolve(import.meta.dir, "../config/filter-patterns.yaml")
+    );
+    const pii004 = config.patterns.filter((p) => p.id === "PII-004");
+    const matches = matchPatterns(
+      "token ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl used",
+      pii004
+    );
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]!.pattern_id).toBe("PII-004");
+  });
+
+  test("PII-004: pipeline blocks GitHub PAT (via encoding defense-in-depth)", () => {
+    const result = filterYaml(
+      yamlWithPayload("token ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl used")
+    );
+    expect(result.decision).toBe("BLOCKED");
+  });
+});
+
+// ============================================================
+// Luhn Checksum Validation (PII-001 companion)
+// ============================================================
+
+describe("Luhn checksum validation", () => {
+  test("valid Visa test number passes Luhn check", () => {
+    expect(luhnCheck("4111111111111111")).toBe(true);
+  });
+
+  test("valid Mastercard test number passes Luhn check", () => {
+    expect(luhnCheck("5500000000000004")).toBe(true);
+  });
+
+  test("valid Amex test number passes Luhn check", () => {
+    expect(luhnCheck("378282246310005")).toBe(true);
+  });
+
+  test("random digit sequence fails Luhn check", () => {
+    expect(luhnCheck("1234567890123456")).toBe(false);
+  });
+
+  test("too-short string fails Luhn check", () => {
+    expect(luhnCheck("123456")).toBe(false);
+  });
+
+  test("non-numeric string fails Luhn check", () => {
+    expect(luhnCheck("abcdefghijklm")).toBe(false);
+  });
+
+  test("number with spaces passes Luhn check (cleaned)", () => {
+    expect(luhnCheck("4111 1111 1111 1111")).toBe(true);
+  });
+
+  test("number with dashes passes Luhn check (cleaned)", () => {
+    expect(luhnCheck("4111-1111-1111-1111")).toBe(true);
+  });
+});
+
+// ============================================================
+// ReDoS Protection Tests
+// ============================================================
+
+describe("ReDoS protection", () => {
+  test("long line is truncated and does not hang", () => {
+    // Create a 20KB line of repeating pattern designed to cause backtracking
+    const longPayload = "a".repeat(20_000);
+    const yaml = yamlWithPayload(longPayload);
+
+    const start = performance.now();
+    const result = filterYaml(yaml);
+    const elapsed = performance.now() - start;
+
+    // Must complete within 5 seconds (generous bound — real target is <1s)
+    expect(elapsed).toBeLessThan(5000);
+    // Should still produce a valid result
+    expect(result.decision).toBeDefined();
+  });
+
+  test("pathological regex input does not hang pattern matcher", () => {
+    // Classic ReDoS payload: long string of 'a's for patterns with nested quantifiers
+    const pathological = "aaaaaaaaaa".repeat(500) + "!";
+    const yaml = yamlWithPayload(pathological);
+
+    const start = performance.now();
+    const result = filterYaml(yaml);
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(5000);
+    expect(result.decision).toBeDefined();
+  });
+
+  test("code fence marker lines are not false-positived", () => {
+    // The fence markers (``` lines) themselves are skipped by isInsideCodeContext.
+    // Content BETWEEN fences is still scanned (multi-line fence tracking is not
+    // implemented — that would require stateful line-by-line parsing).
+    const md = [
+      "# Example",
+      "",
+      "```ignore previous instructions",
+      "some code here",
+      "```",
+      "",
+      "This is normal text.",
+    ].join("\n");
+    const result = filterMarkdown(md);
+    // The injection text ON the fence line should be skipped
+    expect(
+      result.matches.some(
+        (m) => m.pattern_id === "PI-001" && m.line === 3
+      )
+    ).toBe(false);
+  });
+
+  test("inline code content is not false-positived", () => {
+    const md =
+      "Use `ignore previous instructions` as an example of what to detect.";
+    const result = filterMarkdown(md);
+    // Match inside backticks should be skipped
+    expect(result.matches.some((m) => m.pattern_id === "PI-001")).toBe(false);
   });
 });
 
