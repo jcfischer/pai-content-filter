@@ -25,6 +25,7 @@ export {
   loadProfile,
   buildDefaultConfig,
 } from "./lib/quarantine-runner";
+export { alertBlock } from "./lib/alerts";
 export {
   TypedReferenceSchema,
   TypedReferenceFilterResult,
