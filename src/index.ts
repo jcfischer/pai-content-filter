@@ -27,9 +27,22 @@ export {
 } from "./lib/quarantine-runner";
 export { alertBlock } from "./lib/alerts";
 export {
+  extractFirstCommand,
+  tokenize,
+  classifyCommand,
+} from "./lib/command-parser";
+export {
+  extractRepoName,
+  rewriteCommand,
+  buildHookOutput,
+} from "./lib/sandbox-rewriter";
+export {
   TypedReferenceSchema,
   TypedReferenceFilterResult,
   CrossProjectProfileSchema,
+  CommandType,
+  EnforcerMode,
+  HookOutputSchema,
 } from "./lib/types";
 export type {
   FilterConfig,
@@ -47,4 +60,7 @@ export type {
   AuditDecision,
   TypedReference,
   ProvenanceResult,
+  ParsedCommand,
+  RewriteResult,
+  HookOutput,
 } from "./lib/types";

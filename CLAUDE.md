@@ -11,7 +11,7 @@ Inbound content security for PAI cross-project collaboration.
 ## Development
 
 ```bash
-bun test              # Run all 275 tests
+bun test              # Run all 380 tests
 bun run typecheck     # Type checking (tsc --noEmit)
 bun run src/cli.ts    # CLI entry point
 ```
@@ -30,12 +30,15 @@ src/
     ├── audit.ts               # JSONL append-only audit trail with rotation
     ├── human-review.ts        # Override and review decision flows
     ├── typed-reference.ts     # Immutable TypedReference builder + provenance validation
+    ├── command-parser.ts      # Bash command tokenizer and classifier (F-006)
+    ├── sandbox-rewriter.ts    # Command rewriter targeting sandbox directory (F-006)
     ├── quarantine-runner.ts   # Subprocess isolation for cross-project reads
     ├── alerts.ts              # Structured stderr block alerts
     └── types.ts               # All Zod schemas and TypeScript types
 
 hooks/
-└── ContentFilter.hook.ts      # PreToolUse security gate (standalone script)
+├── ContentFilter.hook.ts      # PreToolUse gate: scan files on Read/Glob/Grep
+└── SandboxEnforcer.hook.ts    # PreToolUse gate: redirect acquisitions to sandbox
 
 config/
 ├── filter-patterns.yaml       # Pattern library (28 patterns + 6 encoding rules)
@@ -52,10 +55,13 @@ tests/
 ├── human-review.test.ts       # F-002: 14 tests
 ├── typed-reference.test.ts    # F-003: 33 tests
 ├── quarantine-runner.test.ts  # F-004: 24 tests
+├── command-parser.test.ts     # F-006: 37 command parser tests
+├── sandbox-rewriter.test.ts   # F-006: 25 sandbox rewriter tests
 ├── canary.test.ts             # F-005: 61 canary + performance tests
 └── integration/
     ├── pipeline.test.ts       # F-005: 17 end-to-end pipeline tests
-    └── hook.test.ts           # F-005: 14 hook integration tests
+    ├── hook.test.ts           # F-005: 14 hook integration tests
+    └── sandbox-enforcer.test.ts # F-006: 14 hook integration tests
 ```
 
 ## Module Map
@@ -71,6 +77,8 @@ tests/
 | typed-reference | F-003 | `createTypedReference()`, `validateProvenance()` — immutable refs |
 | quarantine-runner | F-004 | `runQuarantine()`, `loadProfile()` — subprocess isolation |
 | alerts | F-005 | `alertBlock()` — stderr alert output |
+| command-parser | F-006 | `extractFirstCommand()`, `tokenize()`, `classifyCommand()` — Bash command parsing |
+| sandbox-rewriter | F-006 | `rewriteCommand()`, `buildHookOutput()`, `extractRepoName()` — sandbox redirection |
 
 ## Key Patterns
 
@@ -82,4 +90,4 @@ tests/
 
 ## SpecFlow
 
-All 5 features complete. Specs in `.specify/specs/f-00N-*/`.
+All 6 features complete. Specs in `.specify/specs/f-00N-*/`.

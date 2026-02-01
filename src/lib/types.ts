@@ -211,3 +211,44 @@ export interface QuarantineResult {
   filesProcessed: number;
   exitCode: number | null;
 }
+
+// --- Sandbox Enforcer Types (F-006) ---
+
+export const CommandType = z.enum([
+  "git-clone",
+  "gh-clone",
+  "curl-download",
+  "wget-download",
+  "wget-dir",
+  "passthrough",
+]);
+export type CommandType = z.infer<typeof CommandType>;
+
+export interface ParsedCommand {
+  type: CommandType;
+  url: string | null;
+  destination: string | null;
+  flags: string[];
+  tokens: string[];
+  raw: string;
+}
+
+export const EnforcerMode = z.enum(["rewrite", "block"]);
+export type EnforcerMode = z.infer<typeof EnforcerMode>;
+
+export interface RewriteResult {
+  rewritten: string;
+  original: string;
+  changed: boolean;
+  newPath: string | null;
+}
+
+export const HookOutputSchema = z.object({
+  updatedInput: z
+    .object({
+      command: z.string(),
+    })
+    .optional(),
+  permissionDecision: z.enum(["allow", "ask", "deny"]).optional(),
+});
+export type HookOutput = z.infer<typeof HookOutputSchema>;

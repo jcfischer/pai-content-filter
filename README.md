@@ -38,18 +38,32 @@ There are three ways to invoke the filter. The PreToolUse hook is the primary in
 
 The hook intercepts tool calls in Claude Code **before they execute**. When an agent tries to Read a file inside the sandbox directory, the hook runs the full filter pipeline and blocks the read if malicious content is detected.
 
-**Setup** — add to `.claude/settings.json`:
+**Setup** — add both hooks to `.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "matcher": "Read|Glob|Grep",
-      "command": "CONTENT_FILTER_SANDBOX_DIR=~/work/sandbox bun run /path/to/pai-content-filter/hooks/ContentFilter.hook.ts"
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "CONTENT_FILTER_SANDBOX_DIR=~/work/sandbox bun run /path/to/pai-content-filter/hooks/SandboxEnforcer.hook.ts"
+      },
+      {
+        "matcher": "Read|Glob|Grep",
+        "command": "CONTENT_FILTER_SANDBOX_DIR=~/work/sandbox bun run /path/to/pai-content-filter/hooks/ContentFilter.hook.ts"
+      }
+    ]
   }
 }
 ```
+
+**How the two hooks work together:**
+
+1. **SandboxEnforcer** (F-006) — intercepts Bash commands. When the agent runs `git clone`, `curl -o`, or `wget -O/P`, the hook rewrites the destination to target the sandbox directory. This ensures all externally-acquired content lands in the sandbox.
+
+2. **ContentFilter** (F-001) — intercepts Read/Glob/Grep. When the agent tries to read a file inside the sandbox, the hook runs the full filter pipeline and blocks if malicious content is detected.
+
+Together they form a complete inbound security gate: SandboxEnforcer routes content to the sandbox, ContentFilter scans it on read.
 
 **What happens at runtime:**
 
@@ -183,7 +197,8 @@ External Sources (repos, PRs, downloads, artifacts)
 | F-003 | Typed References & Provenance | Complete | 33 |
 | F-004 | Tool-Restricted Sandboxing | Complete | 24 |
 | F-005 | Integration & Canary Suite | Complete | 121 |
-| | **Total** | **5/5** | **304** |
+| F-006 | Sandbox Enforcer Hook | Complete | 76 |
+| | **Total** | **6/6** | **380** |
 
 ## Pattern Library
 
@@ -199,11 +214,94 @@ External Sources (repos, PRs, downloads, artifacts)
 
 All patterns are regex-based, human-editable, and hot-reloadable (no restart required). ReDoS-protected via line truncation (10KB) and time-bounded regex execution (500ms).
 
+## Agent Installation Guide
+
+Step-by-step setup for Claude Code agents to enable inbound content security.
+
+### Prerequisites
+
+- [Bun](https://bun.sh) runtime installed
+- Claude Code with hook support
+
+### Step 1: Clone the repository
+
+```bash
+git clone https://github.com/jcfischer/pai-content-filter.git ~/work/pai-content-filter
+cd ~/work/pai-content-filter
+bun install
+```
+
+### Step 2: Create your sandbox directory
+
+```bash
+mkdir -p ~/work/sandbox
+```
+
+This is where all externally-sourced content will be routed to and scanned.
+
+### Step 3: Configure hooks in `.claude/settings.json`
+
+Add both hooks to your Claude Code settings:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "CONTENT_FILTER_SANDBOX_DIR=$HOME/work/sandbox bun run $HOME/work/pai-content-filter/hooks/SandboxEnforcer.hook.ts"
+      },
+      {
+        "matcher": "Read|Glob|Grep",
+        "command": "CONTENT_FILTER_SANDBOX_DIR=$HOME/work/sandbox bun run $HOME/work/pai-content-filter/hooks/ContentFilter.hook.ts"
+      }
+    ]
+  }
+}
+```
+
+### Step 4: Verify installation
+
+```bash
+# Run the test suite to verify everything works
+cd ~/work/pai-content-filter && bun test
+
+# Test the sandbox enforcer manually
+echo '{"tool_name":"Bash","tool_input":{"command":"git clone https://github.com/example/repo"}}' | \
+  CONTENT_FILTER_SANDBOX_DIR=~/work/sandbox bun run hooks/SandboxEnforcer.hook.ts
+# Should output JSON with updatedInput pointing to ~/work/sandbox/repo
+```
+
+### Optional: Block mode
+
+To deny acquisition commands instead of rewriting them, add `CONTENT_FILTER_ENFORCER_MODE=block` to the SandboxEnforcer hook command:
+
+```json
+{
+  "matcher": "Bash",
+  "command": "CONTENT_FILTER_SANDBOX_DIR=$HOME/work/sandbox CONTENT_FILTER_ENFORCER_MODE=block bun run $HOME/work/pai-content-filter/hooks/SandboxEnforcer.hook.ts"
+}
+```
+
+### What gets intercepted
+
+| Command | Action |
+|---------|--------|
+| `git clone <url>` | Rewrite destination → sandbox/repoName |
+| `git clone <url> <dir>` | Rewrite dir → sandbox/basename(dir) |
+| `gh repo clone <owner/repo>` | Rewrite destination → sandbox/repoName |
+| `curl -o <path> <url>` | Rewrite -o path → sandbox/filename |
+| `wget -O <path> <url>` | Rewrite -O path → sandbox/filename |
+| `wget -P <dir> <url>` | Rewrite -P dir → sandbox/ |
+| `git commit`, `git push`, `ls`, etc. | Passthrough (unchanged) |
+| `git pull` | Passthrough (not an acquisition command) |
+
 ## Environment Variables
 
 | Variable | Purpose | Required |
 |----------|---------|----------|
-| `CONTENT_FILTER_SANDBOX_DIR` | Directory containing untrusted external content | Yes (for hook) |
+| `CONTENT_FILTER_SANDBOX_DIR` | Directory containing untrusted external content | Yes (for hooks) |
+| `CONTENT_FILTER_ENFORCER_MODE` | `rewrite` (default) or `block` — SandboxEnforcer behavior | No |
 | `CONTENT_FILTER_SHARED_DIR` | Deprecated alias — fallback if SANDBOX_DIR not set | No |
 
 ## Stack
