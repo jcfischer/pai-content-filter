@@ -49,63 +49,72 @@ function makeInput(command: string) {
 }
 
 // ============================================================
-// Rewrite mode (default)
+// Block-and-instruct mode (default) — exit 2 with rewrite instruction
 // ============================================================
 
-describe("SandboxEnforcer hook — rewrite mode", () => {
-  test("git clone without destination appends sandbox path", async () => {
-    const { stdout, stderr, exitCode } = await runHook(
+describe("SandboxEnforcer hook — block-and-instruct", () => {
+  test("git clone without destination: exit 2 with sandbox command", async () => {
+    const { stderr, exitCode } = await runHook(
       makeInput("git clone https://github.com/owner/repo.git")
     );
-    expect(exitCode).toBe(0);
-    const output = JSON.parse(stdout);
-    expect(output.hookSpecificOutput.hookEventName).toBe("PreToolUse");
-    expect(output.hookSpecificOutput.updatedInput.command).toContain("/home/user/sandbox/repo");
-    expect(output.hookSpecificOutput.permissionDecision).toBe("allow");
-    expect(stderr).toContain("[SandboxEnforcer]");
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("[SandboxEnforcer] BLOCKED");
+    expect(stderr).toContain("/home/user/sandbox/repo");
+    expect(stderr).toContain("Use this command instead:");
   });
 
-  test("git clone with destination outside sandbox rewrites", async () => {
-    const { stdout, exitCode } = await runHook(
+  test("git clone with destination outside sandbox: exit 2 with sandbox path", async () => {
+    const { stderr, exitCode } = await runHook(
       makeInput("git clone https://github.com/owner/repo.git /tmp/repo")
     );
-    expect(exitCode).toBe(0);
-    const output = JSON.parse(stdout);
-    expect(output.hookSpecificOutput.updatedInput.command).toContain("/home/user/sandbox/repo");
-    expect(output.hookSpecificOutput.permissionDecision).toBe("allow");
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("/home/user/sandbox/repo");
   });
 
-  test("git clone with destination inside sandbox passes through", async () => {
+  test("git clone with destination inside sandbox: passthrough", async () => {
     const { stdout, exitCode } = await runHook(
       makeInput(
         "git clone https://github.com/owner/repo.git /home/user/sandbox/repo"
       )
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toBe(""); // no rewrite needed
+    expect(stdout).toBe(""); // no block needed
   });
 
-  test("curl -o outside sandbox rewrites output path", async () => {
-    const { stdout, exitCode } = await runHook(
+  test("curl -o outside sandbox: exit 2 with sandbox path", async () => {
+    const { stderr, exitCode } = await runHook(
       makeInput("curl -o file.json https://example.com/data.json")
     );
-    expect(exitCode).toBe(0);
-    const output = JSON.parse(stdout);
-    expect(output.hookSpecificOutput.updatedInput.command).toContain(
-      "/home/user/sandbox/file.json"
-    );
-    expect(output.hookSpecificOutput.permissionDecision).toBe("allow");
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("/home/user/sandbox/file.json");
+    expect(stderr).toContain("Use this command instead:");
   });
 
-  test("chained command: first segment rewritten", async () => {
-    const { stdout, exitCode } = await runHook(
+  test("chained command: first segment blocked", async () => {
+    const { stderr, exitCode } = await runHook(
       makeInput(
         "git clone https://github.com/owner/repo.git && cd repo"
       )
     );
-    expect(exitCode).toBe(0);
-    const output = JSON.parse(stdout);
-    expect(output.hookSpecificOutput.updatedInput.command).toContain("/home/user/sandbox/repo");
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("/home/user/sandbox/repo");
+  });
+
+  test("wget -O outside sandbox: exit 2 with sandbox path", async () => {
+    const { stderr, exitCode } = await runHook(
+      makeInput("wget -O output.html https://example.com/page")
+    );
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("/home/user/sandbox/output.html");
+  });
+
+  test("wget -P outside sandbox: exit 2 with sandbox path", async () => {
+    const { stderr, exitCode } = await runHook(
+      makeInput("wget -P /tmp/downloads https://example.com/page")
+    );
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("[SandboxEnforcer] BLOCKED");
+    expect(stderr).toContain("/home/user/sandbox");
   });
 });
 
@@ -174,22 +183,18 @@ describe("SandboxEnforcer hook — fail-open", () => {
 });
 
 // ============================================================
-// Block mode
+// Block mode (CONTENT_FILTER_ENFORCER_MODE=block)
 // ============================================================
 
 describe("SandboxEnforcer hook — block mode", () => {
-  test("block mode denies command that needs rewrite", async () => {
-    const { stdout, stderr, exitCode } = await runHook(
+  test("block mode: exit 2 for command needing redirect", async () => {
+    const { stderr, exitCode } = await runHook(
       makeInput("git clone https://github.com/owner/repo.git"),
       { CONTENT_FILTER_ENFORCER_MODE: "block" }
     );
-    expect(exitCode).toBe(0);
-    const output = JSON.parse(stdout);
-    expect(output.hookSpecificOutput.hookEventName).toBe("PreToolUse");
-    expect(output.hookSpecificOutput.permissionDecision).toBe("deny");
-    expect(output.hookSpecificOutput.updatedInput).toBeUndefined();
-    expect(stderr).toContain("[SandboxEnforcer]");
-    expect(stderr).toContain("BLOCKED");
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("[SandboxEnforcer] BLOCKED");
+    expect(stderr).toContain("must target sandbox directory");
   });
 
   test("block mode passes through commands that don't need rewrite", async () => {

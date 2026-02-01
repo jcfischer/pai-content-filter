@@ -3,17 +3,19 @@
 /**
  * PreToolUse hook: Sandbox enforcer for external content acquisition.
  *
- * Intercepts Bash tool calls and rewrites git clone, curl -o, wget -O,
- * and wget -P commands to target the sandbox directory.
+ * Intercepts Bash tool calls that acquire external content (git clone,
+ * curl -o, wget -O/-P) and blocks them if they target a path outside
+ * the sandbox directory. The error message tells Claude the correct
+ * command to use, causing an automatic retry to the sandbox.
+ *
+ * Strategy: exit 2 + stderr instruction. Claude Code's updatedInput
+ * mechanism does not apply in bypassPermissions mode, so we block
+ * and instruct instead. Commands already targeting the sandbox pass
+ * through unmodified.
  *
  * Exit codes:
- *   0 — Always (fail-open)
- *
- * Stdout JSON (when rewrite needed):
- *   { "updatedInput": { "command": "..." }, "permissionDecision": "allow" }
- *
- * In block mode:
- *   { "permissionDecision": "deny" }
+ *   0 — Passthrough (not an acquisition command, or already sandboxed)
+ *   2 — Blocked (acquisition targets path outside sandbox)
  *
  * Environment:
  *   CONTENT_FILTER_SANDBOX_DIR — sandbox directory (required)
@@ -74,7 +76,7 @@ async function main(): Promise<void> {
     const modeRaw = process.env.CONTENT_FILTER_ENFORCER_MODE ?? "rewrite";
     const mode: EnforcerMode = modeRaw === "block" ? "block" : "rewrite";
 
-    // Parse and rewrite
+    // Parse and classify command
     const firstCmd = extractFirstCommand(command);
     const tokens = tokenize(firstCmd);
     const parsed = classifyCommand(tokens);
@@ -82,23 +84,24 @@ async function main(): Promise<void> {
     const hookOutput = buildHookOutput(result, mode);
 
     if (!hookOutput) {
-      process.exit(0); // passthrough
+      process.exit(0); // passthrough: not an acquisition or already sandboxed
     }
 
-    // Log to stderr
-    if (mode === "rewrite" && result.newPath) {
+    // Acquisition command targeting outside sandbox — block with instruction
+    const rewrittenCmd = hookOutput.hookSpecificOutput.updatedInput?.command;
+    if (rewrittenCmd) {
       console.error(
-        `[SandboxEnforcer] Redirected ${parsed.type} to sandbox: ${result.newPath}`
+        `[SandboxEnforcer] BLOCKED: External content must go to sandbox. ` +
+        `Use this command instead: ${rewrittenCmd}`
       );
-    } else if (mode === "block" && result.changed) {
-      console.error(
-        `[SandboxEnforcer] BLOCKED: ${parsed.type} requires sandbox directory`
-      );
+      process.exit(2);
     }
 
-    // Output hook response
-    console.log(JSON.stringify(hookOutput));
-    process.exit(0);
+    // Block mode or no rewrite available
+    console.error(
+      `[SandboxEnforcer] BLOCKED: ${parsed.type} must target sandbox directory ${sandboxDir}`
+    );
+    process.exit(2);
   } catch (e) {
     // Fail-open: any uncaught error → allow
     console.error(
