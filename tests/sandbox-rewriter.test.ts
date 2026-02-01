@@ -305,7 +305,7 @@ describe("buildHookOutput", () => {
     expect(result).toBeNull();
   });
 
-  test("changed + rewrite mode returns updatedInput with allow", () => {
+  test("changed + rewrite mode returns hookSpecificOutput with allow", () => {
     const result = buildHookOutput(
       {
         rewritten: "git clone repo /home/user/sandbox/repo",
@@ -316,13 +316,14 @@ describe("buildHookOutput", () => {
       "rewrite"
     );
     expect(result).not.toBeNull();
-    expect(result!.updatedInput).toEqual({
+    expect(result!.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(result!.hookSpecificOutput.updatedInput).toEqual({
       command: "git clone repo /home/user/sandbox/repo",
     });
-    expect(result!.permissionDecision).toBe("allow");
+    expect(result!.hookSpecificOutput.permissionDecision).toBe("allow");
   });
 
-  test("changed + block mode returns deny without updatedInput", () => {
+  test("changed + block mode returns hookSpecificOutput with deny", () => {
     const result = buildHookOutput(
       {
         rewritten: "git clone repo",
@@ -333,7 +334,8 @@ describe("buildHookOutput", () => {
       "block"
     );
     expect(result).not.toBeNull();
-    expect(result!.permissionDecision).toBe("deny");
-    expect(result!.updatedInput).toBeUndefined();
+    expect(result!.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(result!.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(result!.hookSpecificOutput.updatedInput).toBeUndefined();
   });
 });

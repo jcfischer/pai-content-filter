@@ -243,12 +243,18 @@ export interface RewriteResult {
   newPath: string | null;
 }
 
-export const HookOutputSchema = z.object({
+export const HookSpecificOutputSchema = z.object({
+  hookEventName: z.literal("PreToolUse"),
+  permissionDecision: z.enum(["allow", "ask", "deny"]),
+  permissionDecisionReason: z.string().optional(),
   updatedInput: z
     .object({
       command: z.string(),
     })
     .optional(),
-  permissionDecision: z.enum(["allow", "ask", "deny"]).optional(),
+});
+
+export const HookOutputSchema = z.object({
+  hookSpecificOutput: HookSpecificOutputSchema,
 });
 export type HookOutput = z.infer<typeof HookOutputSchema>;

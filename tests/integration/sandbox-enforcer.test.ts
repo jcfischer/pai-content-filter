@@ -59,8 +59,9 @@ describe("SandboxEnforcer hook — rewrite mode", () => {
     );
     expect(exitCode).toBe(0);
     const output = JSON.parse(stdout);
-    expect(output.updatedInput.command).toContain("/home/user/sandbox/repo");
-    expect(output.permissionDecision).toBe("allow");
+    expect(output.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(output.hookSpecificOutput.updatedInput.command).toContain("/home/user/sandbox/repo");
+    expect(output.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(stderr).toContain("[SandboxEnforcer]");
   });
 
@@ -70,8 +71,8 @@ describe("SandboxEnforcer hook — rewrite mode", () => {
     );
     expect(exitCode).toBe(0);
     const output = JSON.parse(stdout);
-    expect(output.updatedInput.command).toContain("/home/user/sandbox/repo");
-    expect(output.permissionDecision).toBe("allow");
+    expect(output.hookSpecificOutput.updatedInput.command).toContain("/home/user/sandbox/repo");
+    expect(output.hookSpecificOutput.permissionDecision).toBe("allow");
   });
 
   test("git clone with destination inside sandbox passes through", async () => {
@@ -90,10 +91,10 @@ describe("SandboxEnforcer hook — rewrite mode", () => {
     );
     expect(exitCode).toBe(0);
     const output = JSON.parse(stdout);
-    expect(output.updatedInput.command).toContain(
+    expect(output.hookSpecificOutput.updatedInput.command).toContain(
       "/home/user/sandbox/file.json"
     );
-    expect(output.permissionDecision).toBe("allow");
+    expect(output.hookSpecificOutput.permissionDecision).toBe("allow");
   });
 
   test("chained command: first segment rewritten", async () => {
@@ -104,7 +105,7 @@ describe("SandboxEnforcer hook — rewrite mode", () => {
     );
     expect(exitCode).toBe(0);
     const output = JSON.parse(stdout);
-    expect(output.updatedInput.command).toContain("/home/user/sandbox/repo");
+    expect(output.hookSpecificOutput.updatedInput.command).toContain("/home/user/sandbox/repo");
   });
 });
 
@@ -184,8 +185,9 @@ describe("SandboxEnforcer hook — block mode", () => {
     );
     expect(exitCode).toBe(0);
     const output = JSON.parse(stdout);
-    expect(output.permissionDecision).toBe("deny");
-    expect(output.updatedInput).toBeUndefined();
+    expect(output.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(output.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(output.hookSpecificOutput.updatedInput).toBeUndefined();
     expect(stderr).toContain("[SandboxEnforcer]");
     expect(stderr).toContain("BLOCKED");
   });

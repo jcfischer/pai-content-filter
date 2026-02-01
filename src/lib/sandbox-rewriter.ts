@@ -105,14 +105,20 @@ export function buildHookOutput(
 
   if (mode === "rewrite") {
     return {
-      updatedInput: { command: result.rewritten },
-      permissionDecision: "allow",
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse" as const,
+        permissionDecision: "allow" as const,
+        updatedInput: { command: result.rewritten },
+      },
     };
   }
 
   // block mode
   return {
-    permissionDecision: "deny",
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse" as const,
+      permissionDecision: "deny" as const,
+    },
   };
 }
 
