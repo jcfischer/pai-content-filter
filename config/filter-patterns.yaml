@@ -80,6 +80,27 @@ patterns:
     severity: review
     description: Attempts to extract system prompt content
 
+  - id: PI-012
+    name: instruction_override_variants
+    category: injection
+    pattern: '(?:disregard\s+(?:previous|prior|all)\s+(?:instructions|rules)|from\s+now\s+on\b|override\s+(?:all|previous|system)\s+(?:instructions?|rules?|settings?))'
+    severity: block
+    description: Instruction override variants beyond PI-001 (broader phrasing)
+
+  - id: PI-013
+    name: format_marker_exploit
+    category: injection
+    pattern: '(?:\[SYSTEM\]|\[\/SYSTEM\]|\[ASSISTANT\]|\[\/ASSISTANT\]|\[USER\]|\[\/USER\]|<\|assistant\|>|<\|user\|>)'
+    severity: block
+    description: Format marker exploits targeting Llama/Mistral-style delimiters
+
+  - id: PI-014
+    name: jailbreak_advanced
+    category: injection
+    pattern: '(?:\bDAN\b.*\bmode\b|developer\s+mode|bypass\s+(?:safety|content)\s+(?:filter|restriction)|enable\s+(?:unrestricted|unfiltered)\s+(?:mode|output|access))'
+    severity: block
+    description: Advanced jailbreak patterns including DAN mode and safety bypass
+
   # === EXFILTRATION PATTERNS (EX-xxx) ===
 
   - id: EX-001
@@ -223,6 +244,27 @@ patterns:
     pattern: '(?:/Users/[a-zA-Z][a-zA-Z0-9_\-]+/|/home/[a-zA-Z][a-zA-Z0-9_\-]+/|C:\\Users\\[a-zA-Z][a-zA-Z0-9_\-]+\\)'
     severity: review
     description: Hardcoded user paths that may leak contributor identity or filesystem structure
+
+  - id: PII-009
+    name: api_key_replicate
+    category: pii
+    pattern: 'r8_[a-zA-Z0-9]{40}'
+    severity: block
+    description: Replicate API token
+
+  - id: PII-010
+    name: api_key_huggingface
+    category: pii
+    pattern: 'hf_[a-zA-Z0-9]{34,}'
+    severity: block
+    description: HuggingFace API token
+
+  - id: PII-011
+    name: api_key_groq
+    category: pii
+    pattern: 'gsk_[a-zA-Z0-9]{52}'
+    severity: block
+    description: Groq API key
 
 encoding_rules:
   - id: EN-001
