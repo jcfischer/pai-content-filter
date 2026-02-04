@@ -193,6 +193,92 @@ export function loadConfig(configPath: string): FilterConfig {
 }
 
 /**
+ * Tokens that indicate a value is a placeholder/dummy, not a real secret.
+ * Applied to matched text (not the full line) to reduce false positives.
+ * Inspired by MongoDB's Kingfisher approach.
+ */
+const PLACEHOLDER_TOKENS = [
+  "test",
+  "demo",
+  "localhost",
+  "example",
+  "placeholder",
+  "xxxx",
+  "****",
+  "sample",
+  "dummy",
+  "fake",
+  "your-",
+  "<your",
+  "changeme",
+  "todo",
+  "replace",
+  "0000000000",
+];
+
+/**
+ * Check if a matched value is a placeholder/dummy that should not trigger a block.
+ *
+ * Strategy: check if the matched text contains placeholder tokens. For structured
+ * API keys (prefixed like sk-ant-, AKIA, etc.), strip the prefix first and check
+ * if the remaining value is dominated by placeholder characters (x, *, 0).
+ *
+ * Real keys with high entropy will not match. Placeholder keys like
+ * "sk-ant-xxxxxxxxxxxx" or "AKIA0000000000000000" will.
+ */
+export function isPlaceholder(text: string): boolean {
+  if (!text) return false;
+
+  const lower = text.toLowerCase();
+
+  // Direct token match — the value itself contains a placeholder word
+  if (PLACEHOLDER_TOKENS.some((token) => lower.includes(token))) {
+    return true;
+  }
+
+  // Structured key check: strip known prefixes, check if remainder is low-entropy
+  const prefixPatterns = [
+    /^sk-ant-(?:api\d*-)?/i,
+    /^sk-(?:proj-)?/i,
+    /^gh[pousr]_/i,
+    /^(?:AKIA|ABIA|ACCA|ASIA)/,
+    /^r8_/i,
+    /^hf_/i,
+    /^gsk_/i,
+  ];
+
+  for (const prefix of prefixPatterns) {
+    const match = text.match(prefix);
+    if (match) {
+      const remainder = text.slice(match[0].length);
+      if (remainder.length > 0 && isLowEntropy(remainder)) {
+        return true;
+      }
+      break;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if a string has low entropy — dominated by repeated characters,
+ * placeholder chars (x, X, *, 0), or is mostly the same character.
+ * Returns true for "xxxxxxxxxxxx", "000000000", "********" etc.
+ */
+function isLowEntropy(text: string): boolean {
+  const placeholderChars = new Set(["x", "X", "*", "0"]);
+  let placeholderCount = 0;
+
+  for (const ch of text) {
+    if (placeholderChars.has(ch)) placeholderCount++;
+  }
+
+  // If 80%+ of the remainder is placeholder characters, it's low entropy
+  return placeholderCount / text.length >= 0.8;
+}
+
+/**
  * Maximum line length to process. Lines longer than this are truncated
  * before regex matching to prevent ReDoS attacks via crafted input.
  * A 10KB line is far beyond any legitimate YAML/markdown content.
@@ -238,12 +324,34 @@ export function matchPatterns(
         // Skip false positives in code block fences and inline code
         if (isInsideCodeContext(line, match.index)) continue;
 
+        const matchedText = match.text.trim();
+
+        // Placeholder filtering: check matched text for dummy/placeholder values
+        if (isPlaceholder(matchedText)) {
+          if (pattern.severity === "review") {
+            // Review-severity placeholders are suppressed entirely
+            continue;
+          }
+          // Block-severity placeholders downgrade to review
+          matches.push({
+            pattern_id: pattern.id,
+            pattern_name: pattern.name,
+            category: pattern.category,
+            severity: "review",
+            matched_text: matchedText,
+            line: lineIdx + 1,
+            column: match.index + 1,
+            placeholder_skipped: true,
+          });
+          continue;
+        }
+
         matches.push({
           pattern_id: pattern.id,
           pattern_name: pattern.name,
           category: pattern.category,
           severity: pattern.severity,
-          matched_text: match.text.trim(),
+          matched_text: matchedText,
           line: lineIdx + 1,
           column: match.index + 1,
         });

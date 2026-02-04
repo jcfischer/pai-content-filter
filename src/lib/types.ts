@@ -78,6 +78,7 @@ export interface PatternMatch {
   matched_text: string;
   line: number;
   column: number;
+  placeholder_skipped?: boolean;
 }
 
 export interface EncodingMatch {

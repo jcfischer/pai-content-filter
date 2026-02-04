@@ -700,17 +700,43 @@ describe("PII canaries", () => {
     expect(result.matches.some((m) => m.pattern_id === "PII-001")).toBe(true);
   });
 
-  test("PII-001: credit_card_number -- Mastercard test number", () => {
+  test("PII-001: credit_card_number -- Mastercard test number (placeholder downgraded)", () => {
     const result = filterYaml(
       yamlWithPayload("payment with 5500000000000004 accepted")
+    );
+    // 5500000000000004 is a known test number (contains 0000000000) — placeholder downgrade
+    expect(result.decision).toBe("ALLOWED");
+    const match = result.matches.find((m) => m.pattern_id === "PII-001");
+    if (match) {
+      expect(match.severity).toBe("review");
+      expect(match.placeholder_skipped).toBe(true);
+    }
+  });
+
+  test("PII-001: credit_card_number -- realistic Mastercard number", () => {
+    const result = filterYaml(
+      yamlWithPayload("payment with 5425233430109903 accepted")
     );
     expect(result.decision).toBe("BLOCKED");
     expect(result.matches.some((m) => m.pattern_id === "PII-001")).toBe(true);
   });
 
-  test("PII-005: api_key_aws -- AWS Access Key ID", () => {
+  test("PII-005: api_key_aws -- AWS example key (placeholder downgraded)", () => {
     const result = filterYaml(
       yamlWithPayload("AWS key AKIAIOSFODNN7EXAMPLE found")
+    );
+    // AKIAIOSFODNN7EXAMPLE is AWS's documented example key — placeholder downgrade
+    expect(result.decision).toBe("ALLOWED");
+    const match = result.matches.find((m) => m.pattern_id === "PII-005");
+    if (match) {
+      expect(match.severity).toBe("review");
+      expect(match.placeholder_skipped).toBe(true);
+    }
+  });
+
+  test("PII-005: api_key_aws -- realistic AWS key", () => {
+    const result = filterYaml(
+      yamlWithPayload("AWS key AKIAIOSFODNN7RTZQB4W found")
     );
     expect(result.decision).toBe("BLOCKED");
     expect(result.matches.some((m) => m.pattern_id === "PII-005")).toBe(true);
@@ -732,17 +758,35 @@ describe("PII canaries", () => {
     expect(result.matches.some((m) => m.pattern_id === "PII-006")).toBe(true);
   });
 
-  test("PII-007: email_address -- review severity in YAML is ALLOWED", () => {
+  test("PII-007: email_address -- example.com suppressed as placeholder in YAML", () => {
     const result = filterYaml(
       yamlWithPayload("contact dev@example.com for details")
+    );
+    // example.com is a placeholder domain — review-severity match suppressed
+    expect(result.matches.some((m) => m.pattern_id === "PII-007")).toBe(false);
+    expect(result.decision).toBe("ALLOWED");
+  });
+
+  test("PII-007: email_address -- real email in YAML is ALLOWED (review severity)", () => {
+    const result = filterYaml(
+      yamlWithPayload("contact john.doe@realcompany.io for details")
     );
     expect(result.matches.some((m) => m.pattern_id === "PII-007")).toBe(true);
     expect(result.decision).toBe("ALLOWED");
   });
 
-  test("PII-007: email_address -- review severity in markdown is HUMAN_REVIEW", () => {
+  test("PII-007: email_address -- example.com suppressed as placeholder in markdown", () => {
     const result = filterMarkdown(
       "# Contact\n\nReach out to dev@example.com for questions"
+    );
+    // example.com is a placeholder domain — review-severity match suppressed
+    expect(result.matches.some((m) => m.pattern_id === "PII-007")).toBe(false);
+    expect(result.decision).toBe("HUMAN_REVIEW");
+  });
+
+  test("PII-007: email_address -- real email in markdown is HUMAN_REVIEW", () => {
+    const result = filterMarkdown(
+      "# Contact\n\nReach out to john.doe@realcompany.io for questions"
     );
     expect(result.matches.some((m) => m.pattern_id === "PII-007")).toBe(true);
     expect(result.decision).toBe("HUMAN_REVIEW");

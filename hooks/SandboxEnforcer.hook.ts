@@ -35,12 +35,13 @@ import type { EnforcerMode } from "../src/lib/types";
 
 async function main(): Promise<void> {
   try {
-    // Read stdin
-    const chunks: Buffer[] = [];
-    for await (const chunk of Bun.stdin.stream()) {
-      chunks.push(Buffer.from(chunk));
-    }
-    const raw = Buffer.concat(chunks).toString("utf-8").trim();
+    // Read stdin with timeout — prevents hang if stdin never closes
+    const raw = await Promise.race([
+      Bun.stdin.text(),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('stdin timeout')), 3000)
+      ),
+    ]).then(t => t.trim()).catch(() => '');
 
     if (!raw) {
       process.exit(0); // fail-open: empty stdin
