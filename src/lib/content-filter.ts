@@ -2,6 +2,7 @@ import type { AuditConfig, FileFormat, FilterResult } from "./types";
 import { loadConfig, matchPatterns } from "./pattern-matcher";
 import { detectEncoding } from "./encoding-detector";
 import { validateSchema } from "./schema-validator";
+import { scoreDetections, overallScore } from "./scoring";
 import { resolve } from "path";
 import {
   createAuditEntry,
@@ -78,6 +79,8 @@ export function filterContentString(
   // Step 1: Encoding detection — short-circuit on match
   const encodings = detectEncoding(content, config.encoding_rules);
   if (encodings.length > 0) {
+    const scored = scoreDetections([], encodings);
+    const overall = overallScore(scored);
     const result: FilterResult = {
       decision: "BLOCKED",
       matches: [],
@@ -85,6 +88,9 @@ export function filterContentString(
       schema_valid: false,
       file: filePath,
       format,
+      scored_detections: scored,
+      overall_confidence: overall?.confidence,
+      overall_severity: overall?.severity,
     };
     maybeLogAudit(result, content, auditConfig, auditOpts);
     return result;
@@ -112,7 +118,11 @@ export function filterContentString(
   // Step 3: Pattern matching
   const matches = matchPatterns(content, config.patterns);
 
-  // Step 4: Decision logic
+  // Step 4: Scoring
+  const scored = scoreDetections(matches, []);
+  const overall = overallScore(scored);
+
+  // Step 5: Decision logic
   const hasBlockMatch = matches.some((m) => m.severity === "block");
 
   if (hasBlockMatch) {
@@ -123,6 +133,9 @@ export function filterContentString(
       schema_valid: schemaValid,
       file: filePath,
       format,
+      scored_detections: scored,
+      overall_confidence: overall?.confidence,
+      overall_severity: overall?.severity,
     };
     maybeLogAudit(result, content, auditConfig, auditOpts);
     return result;
@@ -137,6 +150,9 @@ export function filterContentString(
       schema_valid: schemaValid,
       file: filePath,
       format,
+      scored_detections: scored.length > 0 ? scored : undefined,
+      overall_confidence: overall?.confidence,
+      overall_severity: overall?.severity,
     };
     maybeLogAudit(result, content, auditConfig, auditOpts);
     return result;
@@ -150,6 +166,9 @@ export function filterContentString(
     schema_valid: schemaValid,
     file: filePath,
     format,
+    scored_detections: scored.length > 0 ? scored : undefined,
+    overall_confidence: overall?.confidence,
+    overall_severity: overall?.severity,
   };
   maybeLogAudit(result, content, auditConfig, auditOpts);
   return result;
