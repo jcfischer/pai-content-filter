@@ -15,6 +15,7 @@ export {
   rotateIfNeeded,
 } from "./lib/audit";
 export { overrideDecision, submitReview } from "./lib/human-review";
+export { bypassFilter } from "./lib/bypass";
 export {
   createTypedReference,
   validateProvenance,
@@ -66,4 +67,5 @@ export type {
   RewriteResult,
   HookOutput,
   ScoredDetection,
+  ContentFilterBypassEvent,
 } from "./lib/types";

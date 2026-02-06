@@ -215,22 +215,22 @@ describe("Hook — Non-Read tools passthrough", () => {
 });
 
 // ============================================================
-// Error handling — fail-open
+// Error handling — fail-closed
 // ============================================================
 
-describe("Hook — Fail-open on errors", () => {
-  test("Read tool when file does not exist exits 0 (fail-open)", async () => {
+describe("Hook — Fail-closed on errors", () => {
+  test("Read tool when file does not exist exits 2 (fail-closed)", async () => {
     const { exitCode } = await runHook({
       tool_name: "Read",
       tool_input: {
         file_path: resolve(SHARED_DIR, "nonexistent-file-that-does-not-exist.yaml"),
       },
     });
-    // Hook should fail-open: if it cannot read the file to filter, allow the tool
-    expect(exitCode).toBe(0);
+    // Hook should fail-closed: if it cannot read the file to filter, block
+    expect(exitCode).toBe(2);
   });
 
-  test("malformed JSON input causes fail-open (exit 0)", async () => {
+  test("malformed JSON input causes fail-closed (exit 2)", async () => {
     // Directly spawn with bad stdin instead of using runHook helper
     const proc = Bun.spawn(["bun", "run", HOOK_PATH], {
       stdin: "pipe",
@@ -246,11 +246,11 @@ describe("Hook — Fail-open on errors", () => {
     proc.stdin.end();
 
     const exitCode = await proc.exited;
-    // Fail-open: invalid input should not block
-    expect(exitCode).toBe(0);
+    // Fail-closed: invalid input should block
+    expect(exitCode).toBe(2);
   });
 
-  test("empty stdin causes fail-open (exit 0)", async () => {
+  test("empty stdin causes fail-closed (exit 2)", async () => {
     const proc = Bun.spawn(["bun", "run", HOOK_PATH], {
       stdin: "pipe",
       stdout: "pipe",
@@ -264,7 +264,7 @@ describe("Hook — Fail-open on errors", () => {
     proc.stdin.end();
 
     const exitCode = await proc.exited;
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(2);
   });
 });
 

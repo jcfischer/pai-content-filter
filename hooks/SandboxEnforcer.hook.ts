@@ -15,7 +15,9 @@
  *
  * Exit codes:
  *   0 — Passthrough (not an acquisition command, or already sandboxed)
- *   2 — Blocked (acquisition targets path outside sandbox)
+ *   2 — Blocked (acquisition targets path outside sandbox, or infrastructure error)
+ *
+ * Fail-closed: any error in the hook → exit 2 (block on failure).
  *
  * Environment:
  *   CONTENT_FILTER_SANDBOX_DIR — sandbox directory (required)
@@ -44,14 +46,16 @@ async function main(): Promise<void> {
     ]).then(t => t.trim()).catch(() => '');
 
     if (!raw) {
-      process.exit(0); // fail-open: empty stdin
+      console.error("[SandboxEnforcer] BLOCKED: empty stdin (fail-closed)");
+      process.exit(2); // fail-closed: empty stdin
     }
 
     let input: { tool_name?: string; tool_input?: Record<string, unknown> };
     try {
       input = JSON.parse(raw);
     } catch {
-      process.exit(0); // fail-open: malformed JSON
+      console.error("[SandboxEnforcer] BLOCKED: malformed JSON input (fail-closed)");
+      process.exit(2); // fail-closed: malformed JSON
     }
 
     // Only gate Bash tool
@@ -104,11 +108,11 @@ async function main(): Promise<void> {
     );
     process.exit(2);
   } catch (e) {
-    // Fail-open: any uncaught error → allow
+    // Fail-closed: any uncaught error → block
     console.error(
-      `[SandboxEnforcer] Error (fail-open): ${e instanceof Error ? e.message : String(e)}`
+      `[SandboxEnforcer] BLOCKED (fail-closed): ${e instanceof Error ? e.message : String(e)}`
     );
-    process.exit(0);
+    process.exit(2);
   }
 }
 

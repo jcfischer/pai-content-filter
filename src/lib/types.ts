@@ -128,6 +128,7 @@ export const AuditEventType = z.enum([
   "human_approve",
   "human_reject",
   "override",
+  "content_filter_bypass",
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
@@ -157,6 +158,14 @@ export const AuditEntrySchema = z.object({
   reason: z.string().optional(),
 });
 export type AuditEntry = z.infer<typeof AuditEntrySchema>;
+
+export interface ContentFilterBypassEvent {
+  event_type: "content_filter_bypass";
+  caller_id: string;
+  content_hash: string;
+  reason: string;
+  timestamp: string;
+}
 
 export interface AuditConfig {
   logDir: string;
