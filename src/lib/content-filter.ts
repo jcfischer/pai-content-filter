@@ -2,6 +2,7 @@ import type { AuditConfig, FileFormat, FilterResult } from "./types";
 import { loadConfig, matchPatterns } from "./pattern-matcher";
 import { detectEncoding } from "./encoding-detector";
 import { validateSchema } from "./schema-validator";
+import { scoreDetections, overallScore } from "./scoring";
 import { resolve } from "path";
 import {
   createAuditEntry,
@@ -64,6 +65,9 @@ export function filterContent(
 
 /**
  * Run the filter pipeline on a string (for testing and library use).
+ *
+ * Fail-closed: any error in the pipeline returns BLOCKED.
+ * Use bypassFilter() to explicitly allow content that was blocked by error.
  */
 export function filterContentString(
   content: string,
@@ -73,86 +77,119 @@ export function filterContentString(
   auditConfig?: AuditConfig,
   auditOpts?: { sourceRepo?: string; sessionId?: string }
 ): FilterResult {
-  const config = loadConfig(configPath ?? CONFIG_PATH);
+  try {
+    const config = loadConfig(configPath ?? CONFIG_PATH);
 
-  // Step 1: Encoding detection — short-circuit on match
-  const encodings = detectEncoding(content, config.encoding_rules);
-  if (encodings.length > 0) {
-    const result: FilterResult = {
-      decision: "BLOCKED",
-      matches: [],
-      encodings,
-      schema_valid: false,
-      file: filePath,
-      format,
-    };
-    maybeLogAudit(result, content, auditConfig, auditOpts);
-    return result;
-  }
-
-  // Step 2: Schema validation (structured formats only)
-  let schemaValid = true;
-  if (format === "yaml" || format === "json") {
-    const schemaResult = validateSchema(content, format);
-    schemaValid = schemaResult.valid;
-    if (!schemaValid) {
+    // Step 1: Encoding detection — short-circuit on match
+    const encodings = detectEncoding(content, config.encoding_rules);
+    if (encodings.length > 0) {
+      const scored = scoreDetections([], encodings);
+      const overall = overallScore(scored);
       const result: FilterResult = {
         decision: "BLOCKED",
         matches: [],
-        encodings: [],
+        encodings,
         schema_valid: false,
         file: filePath,
         format,
+        scored_detections: scored,
+        overall_confidence: overall?.confidence,
+        overall_severity: overall?.severity,
       };
       maybeLogAudit(result, content, auditConfig, auditOpts);
       return result;
     }
-  }
 
-  // Step 3: Pattern matching
-  const matches = matchPatterns(content, config.patterns);
+    // Step 2: Schema validation (structured formats only)
+    let schemaValid = true;
+    if (format === "yaml" || format === "json") {
+      const schemaResult = validateSchema(content, format);
+      schemaValid = schemaResult.valid;
+      if (!schemaValid) {
+        const result: FilterResult = {
+          decision: "BLOCKED",
+          matches: [],
+          encodings: [],
+          schema_valid: false,
+          file: filePath,
+          format,
+        };
+        maybeLogAudit(result, content, auditConfig, auditOpts);
+        return result;
+      }
+    }
 
-  // Step 4: Decision logic
-  const hasBlockMatch = matches.some((m) => m.severity === "block");
+    // Step 3: Pattern matching
+    const matches = matchPatterns(content, config.patterns);
 
-  if (hasBlockMatch) {
+    // Step 4: Scoring
+    const scored = scoreDetections(matches, []);
+    const overall = overallScore(scored);
+
+    // Step 5: Decision logic
+    const hasBlockMatch = matches.some((m) => m.severity === "block");
+
+    if (hasBlockMatch) {
+      const result: FilterResult = {
+        decision: "BLOCKED",
+        matches,
+        encodings: [],
+        schema_valid: schemaValid,
+        file: filePath,
+        format,
+        scored_detections: scored,
+        overall_confidence: overall?.confidence,
+        overall_severity: overall?.severity,
+      };
+      maybeLogAudit(result, content, auditConfig, auditOpts);
+      return result;
+    }
+
+    // Free-text always requires human review, even when clean
+    if (format === "markdown" || format === "mixed") {
+      const result: FilterResult = {
+        decision: "HUMAN_REVIEW",
+        matches,
+        encodings: [],
+        schema_valid: schemaValid,
+        file: filePath,
+        format,
+        scored_detections: scored.length > 0 ? scored : undefined,
+        overall_confidence: overall?.confidence,
+        overall_severity: overall?.severity,
+      };
+      maybeLogAudit(result, content, auditConfig, auditOpts);
+      return result;
+    }
+
+    // Structured format, clean
     const result: FilterResult = {
+      decision: "ALLOWED",
+      matches,
+      encodings: [],
+      schema_valid: schemaValid,
+      file: filePath,
+      format,
+      scored_detections: scored.length > 0 ? scored : undefined,
+      overall_confidence: overall?.confidence,
+      overall_severity: overall?.severity,
+    };
+    maybeLogAudit(result, content, auditConfig, auditOpts);
+    return result;
+  } catch (e) {
+    // Fail-closed: any pipeline error returns BLOCKED
+    console.error(
+      `[content-filter] Pipeline error (fail-closed): ${e instanceof Error ? e.message : String(e)}`
+    );
+    return {
       decision: "BLOCKED",
-      matches,
+      matches: [],
       encodings: [],
-      schema_valid: schemaValid,
+      schema_valid: false,
       file: filePath,
       format,
     };
-    maybeLogAudit(result, content, auditConfig, auditOpts);
-    return result;
   }
-
-  // Free-text always requires human review, even when clean
-  if (format === "markdown" || format === "mixed") {
-    const result: FilterResult = {
-      decision: "HUMAN_REVIEW",
-      matches,
-      encodings: [],
-      schema_valid: schemaValid,
-      file: filePath,
-      format,
-    };
-    maybeLogAudit(result, content, auditConfig, auditOpts);
-    return result;
-  }
-
-  // Structured format, clean
-  const result: FilterResult = {
-    decision: "ALLOWED",
-    matches,
-    encodings: [],
-    schema_valid: schemaValid,
-    file: filePath,
-    format,
-  };
-  maybeLogAudit(result, content, auditConfig, auditOpts);
-  return result;
 }
 
 /**

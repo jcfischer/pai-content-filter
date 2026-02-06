@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { detectEncoding } from "../src/lib/encoding-detector";
+import { detectEncoding, looksLikeIdentifier } from "../src/lib/encoding-detector";
 import type { EncodingRule } from "../src/lib/types";
 
 // --- Test fixture rules matching the YAML config ---
@@ -442,5 +442,161 @@ describe("detectEncoding", () => {
       const result = detectEncoding(content, [MULTI_FILE_SPLIT_RULE]);
       expect(result.length).toBe(1);
     });
+  });
+
+  // ===========================================================================
+  // Identifier false-positive prevention (Issue #5)
+  // ===========================================================================
+
+  describe("identifier false-positive prevention", () => {
+    test("skips camelCase identifier: updateWorkItemMetadata", () => {
+      const content = "### 1. `updateWorkItemMetadata(itemId, metadataUpdates)`";
+      const result = detectEncoding(content, [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("skips camelCase identifier: getWorkItemStatus", () => {
+      const result = detectEncoding("getWorkItemStatus", [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("skips camelCase identifier: handleUserAuthenticationFlow", () => {
+      const result = detectEncoding("handleUserAuthenticationFlow", [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("skips PascalCase identifier: UpdateWorkItemMetadata", () => {
+      const result = detectEncoding("UpdateWorkItemMetadata", [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("skips PascalCase identifier: ContentFilterPipeline", () => {
+      const result = detectEncoding("ContentFilterPipeline", [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("skips snake_case identifier: update_work_item_metadata", () => {
+      const result = detectEncoding("update_work_item_metadata", [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("still detects real base64 with padding", () => {
+      const b64 = "SGVsbG8gV29ybGQgdGhpcyBpcyBiYXNlNjQ=";
+      const result = detectEncoding(b64, [BASE64_RULE]);
+      expect(result.length).toBe(1);
+      expect(result[0]!.type).toBe("base64");
+    });
+
+    test("still detects real base64 without padding", () => {
+      const b64 = "dGhpcyBpcyBhIHRlc3Qgc3RyaW5n"; // "this is a test string"
+      const result = detectEncoding(b64, [BASE64_RULE]);
+      expect(result.length).toBe(1);
+    });
+
+    test("still detects base64 with + character", () => {
+      const b64 = "SGVsbG8rV29ybGQrdGVzdA+test";
+      const result = detectEncoding(b64, [BASE64_RULE]);
+      expect(result.length).toBe(1);
+    });
+
+    test("still detects base64 with / character", () => {
+      const b64 = "SGVsbG8vV29ybGQvdGVzdA/test";
+      const result = detectEncoding(b64, [BASE64_RULE]);
+      expect(result.length).toBe(1);
+    });
+
+    test("skips long method chain name", () => {
+      const content = "createTypedReferenceFromContent";
+      const result = detectEncoding(content, [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("does not skip all-lowercase string without transitions", () => {
+      // All lowercase, no transitions — could be base64
+      const content = "abcdefghijklmnopqrstuvwxyz";
+      const result = detectEncoding(content, [BASE64_RULE]);
+      expect(result.length).toBe(1);
+    });
+
+    test("does not skip all-uppercase string without transitions", () => {
+      // All uppercase, no transitions — could be base64
+      const content = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const result = detectEncoding(content, [BASE64_RULE]);
+      expect(result.length).toBe(1);
+    });
+
+    test("skips identifier in markdown code reference", () => {
+      const content = "`filterContentString` processes the input";
+      const result = detectEncoding(content, [BASE64_RULE]);
+      expect(result).toEqual([]);
+    });
+
+    test("only affects base64 rule, not other encoding rules", () => {
+      // Ensure the identifier check only applies to base64
+      const content = "\\u0048\\u0065\\u006C";
+      const result = detectEncoding(content, [UNICODE_RULE]);
+      expect(result.length).toBe(1);
+    });
+  });
+});
+
+// =============================================================================
+// looksLikeIdentifier unit tests
+// =============================================================================
+
+describe("looksLikeIdentifier", () => {
+  test("detects camelCase", () => {
+    expect(looksLikeIdentifier("updateWorkItemMetadata")).toBe(true);
+  });
+
+  test("detects PascalCase", () => {
+    expect(looksLikeIdentifier("UpdateWorkItemMetadata")).toBe(true);
+  });
+
+  test("detects snake_case", () => {
+    expect(looksLikeIdentifier("update_work_item_metadata")).toBe(true);
+  });
+
+  test("rejects padded base64", () => {
+    expect(looksLikeIdentifier("SGVsbG8gV29ybGQ=")).toBe(false);
+  });
+
+  test("rejects base64 with +", () => {
+    expect(looksLikeIdentifier("SGVsbG8+V29ybGQ")).toBe(false);
+  });
+
+  test("rejects base64 with /", () => {
+    expect(looksLikeIdentifier("SGVsbG8/V29ybGQ")).toBe(false);
+  });
+
+  test("rejects all-lowercase (no transitions)", () => {
+    expect(looksLikeIdentifier("abcdefghijklmnopqrst")).toBe(false);
+  });
+
+  test("rejects all-uppercase (no transitions)", () => {
+    expect(looksLikeIdentifier("ABCDEFGHIJKLMNOPQRST")).toBe(false);
+  });
+
+  test("rejects two segments (insufficient)", () => {
+    // Only 2 segments: "get" + "Work" — needs at least 3
+    expect(looksLikeIdentifier("getWork")).toBe(false);
+  });
+
+  test("accepts three segments (minimum)", () => {
+    // 3 segments: "get" + "Work" + "Item"
+    expect(looksLikeIdentifier("getWorkItem")).toBe(true);
+  });
+
+  test("rejects string starting with number", () => {
+    expect(looksLikeIdentifier("123updateWorkItem")).toBe(false);
+  });
+
+  test("accepts identifier starting with underscore", () => {
+    expect(looksLikeIdentifier("_privateMethodName")).toBe(true);
+  });
+
+  test("rejects random mixed case without structure", () => {
+    // Has transitions but also has base64 chars like /
+    expect(looksLikeIdentifier("aB/cD")).toBe(false);
   });
 });

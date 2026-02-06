@@ -2,7 +2,7 @@
 
 export { filterContent, filterContentString, detectFormat } from "./lib/content-filter";
 export { loadConfig, matchPatterns, luhnCheck, isPlaceholder } from "./lib/pattern-matcher";
-export { detectEncoding } from "./lib/encoding-detector";
+export { detectEncoding, looksLikeIdentifier } from "./lib/encoding-detector";
 export { validateSchema } from "./lib/schema-validator";
 export {
   logAuditEntry,
@@ -15,6 +15,7 @@ export {
   rotateIfNeeded,
 } from "./lib/audit";
 export { overrideDecision, submitReview } from "./lib/human-review";
+export { bypassFilter } from "./lib/bypass";
 export {
   createTypedReference,
   validateProvenance,
@@ -36,6 +37,7 @@ export {
   rewriteCommand,
   buildHookOutput,
 } from "./lib/sandbox-rewriter";
+export { scoreDetections, overallScore } from "./lib/scoring";
 export {
   TypedReferenceSchema,
   TypedReferenceFilterResult,
@@ -43,6 +45,7 @@ export {
   CommandType,
   EnforcerMode,
   HookOutputSchema,
+  SeverityTier,
 } from "./lib/types";
 export type {
   FilterConfig,
@@ -63,4 +66,6 @@ export type {
   ParsedCommand,
   RewriteResult,
   HookOutput,
+  ScoredDetection,
+  ContentFilterBypassEvent,
 } from "./lib/types";

@@ -94,6 +94,17 @@ export interface SchemaResult {
   errors: string[];
 }
 
+// --- Severity Tiers (confidence/severity scoring model) ---
+
+export const SeverityTier = z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
+export type SeverityTier = z.infer<typeof SeverityTier>;
+
+export interface ScoredDetection {
+  pattern_id: string;
+  confidence: number; // 0.0 - 1.0
+  severity: SeverityTier;
+}
+
 // --- Filter Result (output of pipeline) ---
 
 export interface FilterResult {
@@ -103,6 +114,9 @@ export interface FilterResult {
   schema_valid: boolean;
   file: string;
   format: FileFormat;
+  scored_detections?: ScoredDetection[];
+  overall_confidence?: number; // 0.0 - 1.0
+  overall_severity?: SeverityTier;
 }
 
 // --- Audit Types (F-002) ---
@@ -114,6 +128,7 @@ export const AuditEventType = z.enum([
   "human_approve",
   "human_reject",
   "override",
+  "content_filter_bypass",
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
@@ -143,6 +158,14 @@ export const AuditEntrySchema = z.object({
   reason: z.string().optional(),
 });
 export type AuditEntry = z.infer<typeof AuditEntrySchema>;
+
+export interface ContentFilterBypassEvent {
+  event_type: "content_filter_bypass";
+  caller_id: string;
+  content_hash: string;
+  reason: string;
+  timestamp: string;
+}
 
 export interface AuditConfig {
   logDir: string;

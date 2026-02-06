@@ -156,27 +156,26 @@ describe("SandboxEnforcer hook — passthrough", () => {
 });
 
 // ============================================================
-// Error handling (fail-open)
+// Error handling (fail-closed)
 // ============================================================
 
-describe("SandboxEnforcer hook — fail-open", () => {
-  test("malformed JSON stdin → exit 0, empty stdout", async () => {
-    const { stdout, exitCode } = await runHook("not json at all");
-    expect(exitCode).toBe(0);
-    expect(stdout).toBe("");
+describe("SandboxEnforcer hook — fail-closed", () => {
+  test("malformed JSON stdin → exit 2 (fail-closed)", async () => {
+    const { exitCode } = await runHook("not json at all");
+    expect(exitCode).toBe(2);
   });
 
-  test("empty stdin → exit 0", async () => {
-    const { stdout, exitCode } = await runHook("");
-    expect(exitCode).toBe(0);
-    expect(stdout).toBe("");
+  test("empty stdin → exit 2 (fail-closed)", async () => {
+    const { exitCode } = await runHook("");
+    expect(exitCode).toBe(2);
   });
 
-  test("missing SANDBOX_DIR env → passthrough", async () => {
+  test("missing SANDBOX_DIR env → passthrough (not an error)", async () => {
     const { stdout, exitCode } = await runHook(
       makeInput("git clone https://github.com/owner/repo.git"),
       { CONTENT_FILTER_SANDBOX_DIR: "" }
     );
+    // Missing sandbox config is a deliberate operator choice, not an error
     expect(exitCode).toBe(0);
     expect(stdout).toBe("");
   });
