@@ -1,8 +1,18 @@
-import type { AuditConfig, DecodedMatch, FileFormat, FilterConfig, FilterResult, PatternMatch } from "./types";
+import type {
+  AuditConfig,
+  DecodedMatch,
+  FileFormat,
+  FilterConfig,
+  FilterResult,
+  HeuristicResult,
+  PatternMatch,
+} from "./types";
 import { loadConfig, loadConfigFromString, matchPatterns } from "./pattern-matcher";
 import { detectEncoding } from "./encoding-detector";
 import { validateSchema } from "./schema-validator";
 import { scoreDetections, overallScore } from "./scoring";
+import { scoreHeuristic } from "./heuristic-scorer";
+import { ATTACK_CORPUS } from "./attack-corpus";
 import {
   createAuditEntry,
   hashContent,
@@ -203,17 +213,38 @@ export function filterContentString(
       }
     }
 
-    // Step 3: Pattern matching
+    // Step 3: L0 — regex pattern matching
     const matches = matchPatterns(content, config.patterns);
 
-    // Step 4: Scoring
+    // Step 4: L1 — heuristic prompt-injection scorer.
+    // Runs the ported Rebuff heuristic algorithm against the curated attack
+    // corpus. Offline, zero-config, pure CPU. Catches paraphrased injection
+    // phrasing that the L0 regexes miss.
+    const heuristic = scoreHeuristic(content, ATTACK_CORPUS as string[]);
+
+    // Step 5: Scoring — L0 detections feed the existing confidence model;
+    // L1 contributes its own score (see overallConfidenceWithL1 below).
     const scored = scoreDetections(matches, []);
     const overall = overallScore(scored);
 
-    // Step 5: Decision logic
+    // Step 6: Combined decision logic.
+    // A BLOCKED verdict from EITHER layer is BLOCKED. L1 "review" raises the
+    // outcome to HUMAN_REVIEW but never blocks (cortex treats HUMAN_REVIEW as
+    // allowed — there is no operator in the per-message loop).
     const hasBlockMatch = matches.some((m) => m.severity === "block");
+    const l1Block = heuristic.verdict === "block";
+    const l1Review = heuristic.verdict === "review";
 
-    if (hasBlockMatch) {
+    // L1's score should be visible in overall_confidence even when L0 found
+    // nothing, so cortex's reason/score stays meaningful for L1-only hits.
+    const combinedConfidence = Math.max(
+      overall?.confidence ?? 0,
+      heuristic.verdict === "allow" ? 0 : heuristic.score,
+    );
+    const overallConfidence =
+      combinedConfidence > 0 ? combinedConfidence : undefined;
+
+    if (hasBlockMatch || l1Block) {
       const result: FilterResult = {
         decision: "BLOCKED",
         matches,
@@ -222,15 +253,17 @@ export function filterContentString(
         file: filePath,
         format,
         scored_detections: scored,
-        overall_confidence: overall?.confidence,
-        overall_severity: overall?.severity,
+        overall_confidence: overallConfidence,
+        overall_severity: overall?.severity ?? (l1Block ? "HIGH" : undefined),
+        heuristic,
       };
       maybeLogAudit(result, content, auditConfig, auditOpts);
       return result;
     }
 
-    // Free-text always requires human review, even when clean
-    if (format === "markdown" || format === "mixed") {
+    // Free-text always requires human review, even when clean. An L1 "review"
+    // verdict also routes structured formats to HUMAN_REVIEW.
+    if (format === "markdown" || format === "mixed" || l1Review) {
       const result: FilterResult = {
         decision: "HUMAN_REVIEW",
         matches,
@@ -239,14 +272,15 @@ export function filterContentString(
         file: filePath,
         format,
         scored_detections: scored.length > 0 ? scored : undefined,
-        overall_confidence: overall?.confidence,
+        overall_confidence: overallConfidence,
         overall_severity: overall?.severity,
+        heuristic,
       };
       maybeLogAudit(result, content, auditConfig, auditOpts);
       return result;
     }
 
-    // Structured format, clean
+    // Structured format, clean on both layers
     const result: FilterResult = {
       decision: "ALLOWED",
       matches,
@@ -255,8 +289,9 @@ export function filterContentString(
       file: filePath,
       format,
       scored_detections: scored.length > 0 ? scored : undefined,
-      overall_confidence: overall?.confidence,
+      overall_confidence: overallConfidence,
       overall_severity: overall?.severity,
+      heuristic,
     };
     maybeLogAudit(result, content, auditConfig, auditOpts);
     return result;

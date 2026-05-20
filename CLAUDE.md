@@ -11,7 +11,7 @@ Inbound content security for agent workflows. Formerly published as `pai-content
 ## Development
 
 ```bash
-bun test              # Run all 380 tests
+bun test              # Run all 651 tests
 bun run typecheck     # Type checking (tsc --noEmit)
 bun run src/cli.ts    # CLI entry point
 ```

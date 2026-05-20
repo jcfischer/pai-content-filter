@@ -1,4 +1,5 @@
 import type { EncodingRule, EncodingMatch } from "./types";
+import { isLikelyBase64 } from "./entropy";
 
 /**
  * Detect whether a string looks like a code identifier (camelCase, PascalCase,
@@ -88,19 +89,23 @@ export function detectEncoding(
           }
         }
 
-        // Skip base64 matches that are part of URL paths (/ is valid base64)
-        if (rule.type === "base64" && text.includes("/")) {
-          const before = line.slice(0, match.index);
-          if (/https?:\/\/\S*$/.test(before)) {
-            if (text.length === 0) regex.lastIndex++;
-            continue;
-          }
-        }
-
-        // Skip base64 matches that look like code identifiers
+        // Skip base64 matches that look like code identifiers (camelCase etc.)
         if (rule.type === "base64" && looksLikeIdentifier(text)) {
           if (text.length === 0) regex.lastIndex++;
           continue;
+        }
+
+        // L0 entropy + structural gate (cortex#367). The EN-001 regex matches
+        // any 21+ char run of the base64 alphabet, so it eats GitHub URL paths,
+        // commit SHAs and long slash-paths. isLikelyBase64() rejects the hit
+        // unless it is hex-free of git-SHA shape, not inside a URL/path, and
+        // above the Shannon-entropy floor — i.e. actually looks like base64.
+        if (rule.type === "base64") {
+          const before = line.slice(0, match.index);
+          if (!isLikelyBase64(text, before)) {
+            if (text.length === 0) regex.lastIndex++;
+            continue;
+          }
         }
 
         matches.push({

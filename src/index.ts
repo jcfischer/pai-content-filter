@@ -4,6 +4,21 @@ export { filterContent, filterContentString, detectFormat } from "./lib/content-
 export { loadConfig, loadConfigFromString, matchPatterns, luhnCheck, isPlaceholder } from "./lib/pattern-matcher";
 export { DEFAULT_CONFIG_YAML } from "./lib/default-config";
 export { detectEncoding, looksLikeIdentifier } from "./lib/encoding-detector";
+export {
+  shannonEntropy,
+  looksLikeShaToken,
+  looksLikePathSegment,
+  isLikelyBase64,
+  BASE64_ENTROPY_FLOOR,
+} from "./lib/entropy";
+export {
+  scoreHeuristic,
+  diceCoefficient,
+  normalizeText,
+  L1_BLOCK_THRESHOLD,
+  L1_REVIEW_THRESHOLD,
+} from "./lib/heuristic-scorer";
+export { ATTACK_CORPUS } from "./lib/attack-corpus";
 export { validateSchema } from "./lib/schema-validator";
 export {
   logAuditEntry,
@@ -78,5 +93,7 @@ export type {
   HookOutput,
   ScoredDetection,
   ContentFilterBypassEvent,
+  HeuristicResult,
+  HeuristicVerdict,
 } from "./lib/types";
 export type { DecodedContent } from "./lib/decoder";

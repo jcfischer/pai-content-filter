@@ -117,6 +117,21 @@ export interface ScoredDetection {
   severity: SeverityTier;
 }
 
+// --- L1 Heuristic Scorer Types ---
+
+/** Verdict tier from the L1 heuristic scorer. */
+export type HeuristicVerdict = "block" | "review" | "allow";
+
+/** Result of the L1 heuristic prompt-injection scorer. */
+export interface HeuristicResult {
+  /** 0.0 - 1.0 max similarity to any corpus attack phrase. */
+  score: number;
+  /** Verdict derived from the score-threshold mapping. */
+  verdict: HeuristicVerdict;
+  /** Corpus phrase that matched best — present only when verdict != "allow". */
+  matched_phrase?: string;
+}
+
 // --- Filter Result (output of pipeline) ---
 
 export interface FilterResult {
@@ -131,6 +146,11 @@ export interface FilterResult {
   overall_severity?: SeverityTier;
   /** Pattern matches found in decoded encoded content (from decode-then-match step) */
   decoded_matches?: DecodedMatch[];
+  /**
+   * L1 heuristic-scorer result, present when the heuristic layer ran.
+   * Lets consumers see which layer fired (L0 regex vs L1 heuristic).
+   */
+  heuristic?: HeuristicResult;
 }
 
 // --- Audit Types (F-002) ---
