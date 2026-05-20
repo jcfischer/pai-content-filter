@@ -1,7 +1,7 @@
 {
   "name": "@metafactory/content-filter",
-  "version": "0.1.0",
-  "description": "Inbound content security — prompt injection scanning, PII detection, and sandbox enforcement",
+  "version": "0.2.0",
+  "description": "Inbound content security — layered prompt-injection scanner (regex + heuristic), PII detection, and sandbox enforcement",
   "main": "src/index.ts",
   "module": "src/index.ts",
   "types": "src/index.ts",

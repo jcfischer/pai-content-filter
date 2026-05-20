@@ -143,18 +143,74 @@ const override = overrideDecision(result, content, "admin", "reviewed manually",
 All three invocation paths run the same pipeline (defined in `src/lib/content-filter.ts`):
 
 ```
-File → Detect Format → Encoding Detection → Schema Validation → Pattern Matching → Decision
+File → Detect Format → Encoding Detection → Schema Validation
+     → L0 Pattern Matching → L1 Heuristic Scorer → Combined Decision
 ```
 
 | Step | What It Does | Short-Circuit |
 |------|-------------|---------------|
 | **1. Detect format** | Extension-based: `.yaml`/`.json`/`.md` | No |
-| **2. Encoding detection** | Base64, unicode escapes, hex, URL-encoded, HTML entities | Yes → BLOCKED |
+| **2. Encoding detection** | Base64 (entropy-gated), unicode escapes, hex, URL-encoded, HTML entities | Yes → BLOCKED |
 | **3. Schema validation** | Zod parse (YAML/JSON only) | Yes → BLOCKED |
-| **4. Pattern matching** | 36 regex patterns across 4 categories | No |
-| **5. Decision** | Any block-severity match → BLOCKED. Markdown → HUMAN_REVIEW. Clean structured → ALLOWED | — |
+| **4. L0 — pattern matching** | 36 regex patterns across 4 categories | No |
+| **5. L1 — heuristic scorer** | Similarity scoring against a curated attack-phrase corpus | No |
+| **6. Combined decision** | BLOCKED from L0 *or* L1 → BLOCKED. Markdown / L1-review → HUMAN_REVIEW. Clean → ALLOWED | — |
 
 **Markdown always gets HUMAN_REVIEW** even when clean — free text is inherently untrustable by regex alone.
+
+### The layered scanner (v0.2.0 — cortex#370)
+
+`@metafactory/content-filter` runs two complementary detection layers. Both
+require **zero config, zero API keys, zero network** — a fresh install gets the
+full scanner out of the box.
+
+**L0 — fast regex (`config/filter-patterns.yaml`, `src/lib/encoding-detector.ts`).**
+The YAML rule set: 36 injection/exfiltration/tool/PII patterns plus 6 encoding
+rules. `~1ms`, the fail-fast path for obvious cases.
+
+The base64 encoding rule `EN-001` is **entropy-aware** (cortex#367). The bare
+regex `[A-Za-z0-9+/]{21,}={0,2}` matches any 21+ char run of the base64
+alphabet, so it false-positived on every GitHub URL, commit SHA and long path —
+which silently blocked review pings. `src/lib/entropy.ts` adds three gates that
+must all pass for a regex hit to count as base64:
+
+- **SHA gate** — hex-only tokens of git object-name length (7/8/40) are rejected.
+- **Path / URL gate** — matches inside a `://` URL or a slash-delimited path of
+  lowercase path-words are rejected.
+- **Shannon-entropy floor** — slash-free candidates below ~3.0 bits/char
+  (repeated-character junk) are rejected.
+
+Real random-bytes base64 (~4.5–6 bits/char, no path structure) still flags.
+
+**L1 — heuristic scorer (`src/lib/heuristic-scorer.ts`).** A dependency-free
+port of [Rebuff](https://github.com/protectai/rebuff)'s heuristic-detection
+algorithm (MIT — see `THIRD-PARTY-NOTICES.md`). It normalizes the input, slides
+same-word-length windows over it, and computes the maximum Sørensen–Dice bigram
+similarity against a curated attack-phrase corpus (`config/attack-corpus.json`).
+This catches paraphrased injection phrasing that the L0 regexes miss.
+
+L1 is a **heuristic string-similarity scorer, not an ML classifier** — offline,
+zero-config, pure CPU. Its score maps to a verdict:
+
+| L1 score | Verdict | Effect |
+|----------|---------|--------|
+| `≥ 0.95` | `block`  | Near-verbatim known attack → BLOCKED |
+| `≥ 0.82` | `review` | Structurally similar → HUMAN_REVIEW (non-blocking) |
+| `< 0.82` | `allow`  | — |
+
+Only `block` makes the scanner reject. The `review` band annotates the result
+without blocking — bigram similarity cannot perfectly separate a paraphrased
+attack from benign text that reuses attack vocabulary, so the mid band is
+deliberately non-blocking.
+
+L1 cost is linear in input size (~30ms/KB — heavier than the C-speed L0 regex
+layers). To bound worst-case cost over untrusted input, the scorer processes at
+most `L1_MAX_INPUT_CHARS` (8 KB) — any legitimate chat prompt fits well inside
+that, the L0 regex layer still scans the full content, and a multi-MB artifact
+can no longer burn seconds of CPU in L1.
+
+> Rebuff's vector-DB layer and LLM-judge layer are **not** ported (out of scope
+> per cortex#370). The published `rebuff` npm package is **not** a dependency.
 
 ## Architecture
 
@@ -200,7 +256,8 @@ External Sources (repos, PRs, downloads, artifacts)
 | F-004 | Tool-Restricted Sandboxing | Complete | 24 |
 | F-005 | Integration & Canary Suite | Complete | 121 |
 | F-006 | Sandbox Enforcer Hook | Complete | 76 |
-| | **Total** | **6/6** | **380** |
+| L0/L1 | Layered Scanner (cortex#370) | Complete | entropy + heuristic + integration |
+| | **Total** | — | **651** |
 
 ## Pattern Library
 
@@ -361,3 +418,7 @@ Decomposed from [F-088 (Inbound Content Security)](https://github.com/jcfischer/
 ## License
 
 MIT
+
+See [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md) for attribution of
+incorporated open-source algorithms (Rebuff's heuristic detector, Microsoft
+Presidio's PII patterns).
