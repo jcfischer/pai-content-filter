@@ -150,6 +150,26 @@ function maxWindowSimilarity(
 export const L1_BLOCK_THRESHOLD = 0.95;
 export const L1_REVIEW_THRESHOLD = 0.82;
 
+/**
+ * Maximum input length (characters) the L1 scorer will process.
+ *
+ * L1 is markedly heavier per byte than the C-speed L0 regex layers: for every
+ * corpus phrase it slides a word-window across the whole input and allocates a
+ * fresh joined string per window. Cost is linear (~30ms/KB), so an unbounded
+ * input — `filterContent(filePath)` is a public API designed to scan
+ * files/artifacts of any size — would burn seconds of CPU and GC churn. That
+ * is unacceptable for a security control over untrusted input (Echo review of
+ * content-filter#17, MAJOR-1).
+ *
+ * Above this cap, `scoreHeuristic()` scores only the first slice. Prompt-
+ * injection phrasing is short and self-contained, and the L0 regex layer still
+ * scans the full content regardless. 8 KB comfortably covers any legitimate
+ * chat prompt (the wired L1 consumer — cortex `scanPrompt` on Discord/
+ * Mattermost messages — is a few KB at most) while bounding worst-case L1 cost
+ * to a few hundred milliseconds rather than seconds.
+ */
+export const L1_MAX_INPUT_CHARS = 8 * 1024;
+
 function verdictForScore(score: number): HeuristicVerdict {
   if (score >= L1_BLOCK_THRESHOLD) return "block";
   if (score >= L1_REVIEW_THRESHOLD) return "review";
@@ -168,13 +188,20 @@ function verdictForScore(score: number): HeuristicVerdict {
  * derived from the threshold mapping, and — when the score crosses the review
  * threshold — the corpus phrase that matched best, for diagnostics.
  *
- * Pure CPU, no I/O, no network. Empty input scores 0.
+ * Pure CPU, no I/O, no network. Empty input scores 0. Input longer than
+ * `L1_MAX_INPUT_CHARS` is truncated before scoring so this security control
+ * bounds its own worst-case cost over untrusted input.
  */
 export function scoreHeuristic(
   input: string,
   corpus: string[],
 ): HeuristicResult {
-  const normalizedInput = normalizeText(input);
+  // Bound L1 cost over untrusted input (Echo content-filter#17, MAJOR-1).
+  const bounded =
+    input.length > L1_MAX_INPUT_CHARS
+      ? input.slice(0, L1_MAX_INPUT_CHARS)
+      : input;
+  const normalizedInput = normalizeText(bounded);
   const inputWords = words(normalizedInput);
 
   if (inputWords.length === 0 || corpus.length === 0) {

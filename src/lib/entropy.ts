@@ -93,16 +93,19 @@ export function looksLikePathSegment(text: string, before = ""): boolean {
 }
 
 /**
- * Minimum Shannon entropy (bits/char) for a slash-free candidate to be treated
- * as real base64. Tuned against the cortex#367 corpus:
+ * Minimum Shannon entropy (bits/char) for a candidate that has already cleared
+ * the SHA and path/URL gates to be treated as real base64. Tuned against the
+ * cortex#367 corpus:
  *
  *   - repeated-char junk ("AAAA...")          → ~0.0   (rejected)
  *   - short real base64 ("dGhpcyBpcyBh...")   → ~3.99  (kept)
  *   - random-bytes base64 (>32 bytes)         → ~4.7-6 (kept)
  *
- * The structural gates (SHA + path) remove the mid-entropy structured-text
- * false positives, so this floor only has to reject low-entropy junk. 3.0 is
- * a conservative cut that keeps every legitimate base64 sample in the corpus.
+ * `isLikelyBase64()` runs this check on every candidate that survived the SHA
+ * and path gates — including base64 that contains a `/` but is not path-shaped.
+ * The structural gates remove the mid-entropy structured-text false positives,
+ * so this floor only has to reject low-entropy junk. 3.0 is a conservative cut
+ * that keeps every legitimate base64 sample in the corpus.
  */
 export const BASE64_ENTROPY_FLOOR = 3.0;
 

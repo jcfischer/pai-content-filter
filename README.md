@@ -203,6 +203,12 @@ without blocking — bigram similarity cannot perfectly separate a paraphrased
 attack from benign text that reuses attack vocabulary, so the mid band is
 deliberately non-blocking.
 
+L1 cost is linear in input size (~30ms/KB — heavier than the C-speed L0 regex
+layers). To bound worst-case cost over untrusted input, the scorer processes at
+most `L1_MAX_INPUT_CHARS` (8 KB) — any legitimate chat prompt fits well inside
+that, the L0 regex layer still scans the full content, and a multi-MB artifact
+can no longer burn seconds of CPU in L1.
+
 > Rebuff's vector-DB layer and LLM-judge layer are **not** ported (out of scope
 > per cortex#370). The published `rebuff` npm package is **not** a dependency.
 

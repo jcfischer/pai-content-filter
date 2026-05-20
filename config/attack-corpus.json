@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "Curated prompt-injection attack-phrase corpus for the L1 heuristic scorer. Seeded from Rebuff's open heuristic corpus (github.com/protectai/rebuff, MIT) and the PI-* regex patterns in filter-patterns.yaml. Plain data — update phrases here without code changes. Each phrase is matched by normalized Sørensen-Dice similarity against sliding windows of the input; see src/heuristic-scorer.ts.",
+  "description": "Curated prompt-injection attack-phrase corpus for the L1 heuristic scorer. Seeded from Rebuff's open heuristic corpus (github.com/protectai/rebuff, MIT) and the PI-* regex patterns in filter-patterns.yaml. Plain data — update phrases here without code changes. Each phrase is matched by normalized Sørensen-Dice similarity against sliding windows of the input; see src/lib/heuristic-scorer.ts.",
   "phrases": [
     "ignore the above directions and",
     "ignore the previous instructions and",

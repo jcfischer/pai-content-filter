@@ -223,7 +223,7 @@ export function filterContentString(
     const heuristic = scoreHeuristic(content, ATTACK_CORPUS as string[]);
 
     // Step 5: Scoring — L0 detections feed the existing confidence model;
-    // L1 contributes its own score (see overallConfidenceWithL1 below).
+    // L1 contributes its own score, combined into `overallConfidence` below.
     const scored = scoreDetections(matches, []);
     const overall = overallScore(scored);
 
