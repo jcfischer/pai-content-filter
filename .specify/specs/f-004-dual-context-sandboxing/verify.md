@@ -22,7 +22,7 @@ bunx tsc --noEmit
 ### CrossProjectProfile (6 tests)
 - [x] Profile config file exists and parses
 - [x] Profile has correct name ("cross-project")
-- [x] Profile allows read-only tools (Read, Glob, Grep, WebFetch)
+- [x] Profile allows read-only tools (Read, Glob, Grep)
 - [x] Profile denies write/execute tools (Bash, Write, Edit, NotebookEdit)
 - [x] Profile denies USER/ path
 - [x] Rejects invalid profile

@@ -25,7 +25,7 @@ From F-088:
 
 Static JSON profile for the quarantined context:
 - Profile name: `cross-project`
-- Allowed tools: Read, Glob, Grep, WebFetch (read-only operations)
+- Allowed tools: Read, Glob, Grep (read-only operations — see `config/cross-project-profile.json` for the canonical list)
 - Denied tools: Bash, Write, Edit, NotebookEdit, plus all MCP server tools
 - Denied paths: `~/.claude/skills/CORE/USER/` (personal data)
 - Schema-validated via Zod
