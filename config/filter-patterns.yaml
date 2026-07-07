@@ -113,7 +113,7 @@ patterns:
   - id: EX-002
     name: path_traversal
     category: exfiltration
-    pattern: '(?:\.\.\/?(?:\.\.\/?)+|~\/\.(?:claude|env|ssh|gnupg|aws|config)|\/etc\/(?:passwd|shadow)|USER\/|credentials?\.(?:json|yaml|yml|toml)|\.env(?:\.local)?(?:\s|$))'
+    pattern: '(?:\.\.\/(?:\.\.\/?)+|~\/\.(?:claude|env|ssh|gnupg|aws|config)|\/etc\/(?:passwd|shadow)|USER\/|credentials?\.(?:json|yaml|yml|toml)|\.env(?:\.local)?(?:\s|$))'
     severity: block
     description: Path traversal and sensitive file access patterns
 

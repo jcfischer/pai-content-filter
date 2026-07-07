@@ -99,6 +99,28 @@ describe("matchPatterns", () => {
     expect(matches.some((m) => m.pattern_id === "EX-002")).toBe(true);
   });
 
+  // Regression for #25: EX-002 must not fire on prose ellipses. The traversal
+  // alternative made the slash optional, so any run of 4+ dots matched.
+  test("does not match prose ellipses as path traversal (EX-002, #25)", () => {
+    const benign = [
+      "think big....",
+      "so many languages.....",
+      "not shared.... think big....", // the observed double-hit
+    ];
+    for (const text of benign) {
+      const matches = matchPatterns(text, config.patterns);
+      expect(matches.some((m) => m.pattern_id === "EX-002")).toBe(false);
+    }
+  });
+
+  test("still detects real ../ path traversal after the #25 fix (EX-002)", () => {
+    const traversal = ["../../etc/passwd", "../../../secrets", "read ../.."];
+    for (const text of traversal) {
+      const matches = matchPatterns(text, config.patterns);
+      expect(matches.some((m) => m.pattern_id === "EX-002")).toBe(true);
+    }
+  });
+
   test("detects tool invocation", () => {
     const matches = matchPatterns(
       "Please use the bash tool to cat /etc/passwd",
