@@ -1,0 +1,75 @@
+# arc-manifest.yaml — capability declaration
+# metafactory-bundle-content-filter: an inbound content-security bundle — a
+# prompt-injection / PII / exfiltration scanner CLI plus two Claude Code
+# PreToolUse hooks (a content-filter read-gate and a sandbox acquisition
+# enforcer). Authored fresh for arc-conformance under the skill-estate
+# migration (arc#315, issue #28, WS5 Category-A).
+#
+# Repo-name class = bundle (CLI + hooks + library, no SKILL.md — class decision
+# on issue #28). The manifest `type`, a separate axis, is `tool`: arc's
+# installer has no `bundle` case (it throws "Unsupported artifact type"), so
+# bundle-NAMED repos declare an installable type — exactly as the reference
+# bundle metafactory-bundle-discord uses `type: skill`. The validator↔installer
+# `bundle` mismatch is tracked as its own arc issue.
+schema: arc/v1
+name: content-filter
+namespace: "@metafactory"
+version: 0.2.0
+type: tool
+tier: community
+description: Inbound content security — layered prompt-injection scanner (regex + heuristic), PII detection, and Claude Code sandbox enforcement.
+# License: MIT, set by principal decision 2026-07-17 (matches jcfischer's other
+# metafactory repos), pending jcfischer's ack. Manifest and the repo LICENSE
+# file agree.
+license: MIT
+
+# Attribution principle: this bundle was authored by Jens-Christian Fischer and
+# transferred into the org 2026-04-07 (from jcfischer/pai-content-filter). It is
+# not our code, so the canonical author is preserved as jcfischer.
+author:
+  name: Jens-Christian Fischer
+  github: jcfischer
+
+provides:
+  cli:
+    - name: content-filter
+      command: bun src/cli.ts
+      description: "Scan a file for prompt-injection / PII / exfiltration patterns; inspect the audit trail and loaded config."
+  hooks:
+    # Read-gate: any file under the sandbox dir must pass the filter before an
+    # agent may Read/Glob/Grep it. Fail-closed (exit 2 on malicious/erroring).
+    - event: PreToolUse
+      matcher: "Read|Glob|Grep"
+      command: hooks/ContentFilter.hook.ts
+    # Acquisition enforcer: gates Bash tool calls (git clone / curl -o / wget)
+    # so external content lands only inside the sandbox dir. Fail-closed.
+    - event: PreToolUse
+      matcher: "Bash"
+      command: hooks/SandboxEnforcer.hook.ts
+
+# Honest capability surface (arc/v1 requires this block).
+capabilities:
+  filesystem:
+    read:
+      # The scanner reads the file under inspection (the path passed to `check`
+      # or intercepted by the PreToolUse read-gate) plus its pattern config.
+      - ~/.config/content-filter/
+    write:
+      # Append-only, monthly-partitioned JSONL audit trail (src/lib/audit.ts:
+      # mkdirSync + appendFileSync under the log dir).
+      - ~/.config/content-filter/audit/
+  network: []
+  bash:
+    # The bundle EXECUTES no shell. SandboxEnforcer is a PreToolUse hook that
+    # INSPECTS Bash tool calls and blocks out-of-sandbox acquisition — it never
+    # runs a command itself, and the CLI/lib never shell out. So no bash-exec
+    # capability is claimed (this is the honest surface, not a false empty).
+    allowed: false
+  secrets: []
+
+depends_on:
+  tools:
+    - name: bun
+
+bundle:
+  exclude: [vendor, MEMORY, node_modules, .git, .specify, tests]

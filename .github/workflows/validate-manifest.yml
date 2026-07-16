@@ -1,0 +1,15 @@
+# Strict arc/v1 manifest validation — the shared CI floor for skill/bundle repos
+# (skill-estate migration WS2, the-metafactory/arc#316). The reusable workflow
+# installs a pinned arc and runs `arc validate` over this repo's
+# arc-manifest.yaml; any strict-contract violation fails the check, one line
+# each. Pinned by 40-hex commit SHA (a branch/tag ref is movable) per the
+# metafactory-actions caller-usage README. Mirrors the pathfinder template
+# (metafactory-soma-skill-handoff).
+name: validate-manifest
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  validate:
+    uses: the-metafactory/metafactory-actions/.github/workflows/validate-manifest.yml@94f76b1e191c430289ec2516746ef23623e9b7c4
