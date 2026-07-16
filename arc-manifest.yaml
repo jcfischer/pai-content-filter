@@ -1,23 +1,27 @@
 # arc-manifest.yaml — capability declaration
-# metafactory-bundle-content-filter: an inbound content-security BUNDLE — a
+# metafactory-bundle-content-filter: an inbound content-security bundle — a
 # prompt-injection / PII / exfiltration scanner CLI plus two Claude Code
 # PreToolUse hooks (a content-filter read-gate and a sandbox acquisition
 # enforcer). Authored fresh for arc-conformance under the skill-estate
-# migration (arc#315, issue #28, WS5 Category-A). Class = bundle (CLI + hooks +
-# library, no SKILL.md) per the recorded class decision on issue #28.
+# migration (arc#315, issue #28, WS5 Category-A).
+#
+# Repo-name class = bundle (CLI + hooks + library, no SKILL.md — class decision
+# on issue #28). The manifest `type`, a separate axis, is `tool`: arc's
+# installer has no `bundle` case (it throws "Unsupported artifact type"), so
+# bundle-NAMED repos declare an installable type — exactly as the reference
+# bundle metafactory-bundle-discord uses `type: skill`. The validator↔installer
+# `bundle` mismatch is tracked as its own arc issue.
 schema: arc/v1
 name: content-filter
 namespace: "@metafactory"
 version: 0.2.0
-type: bundle
+type: tool
 tier: community
 description: Inbound content security — layered prompt-injection scanner (regex + heuristic), PII detection, and Claude Code sandbox enforcement.
-# LICENSE FLAG: the repo carries no LICENSE file and no package.json license
-# field (the source repo jcfischer/pai-content-filter is likewise unlicensed).
-# Applied the spec DD-13 default (Apache-2.0, "unless already chosen"). This is
-# NOT a confirmed choice — jcfischer (author) / principal must confirm and add a
-# LICENSE file before merge.
-license: Apache-2.0
+# License: MIT, set by principal decision 2026-07-17 (matches jcfischer's other
+# metafactory repos), pending jcfischer's ack. Manifest and the repo LICENSE
+# file agree.
+license: MIT
 
 # Attribution principle: this bundle was authored by Jens-Christian Fischer and
 # transferred into the org 2026-04-07 (from jcfischer/pai-content-filter). It is
