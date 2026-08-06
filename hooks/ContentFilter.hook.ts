@@ -22,6 +22,7 @@
 
 import { filterContent } from "../src/lib/content-filter";
 import { existsSync } from "fs";
+import { resolve, sep } from "path";
 
 const GATED_TOOLS = new Set(["Read", "Glob", "Grep"]);
 
@@ -68,12 +69,34 @@ async function main(): Promise<void> {
       process.exit(0); // no file path to gate
     }
 
-    // Check if path is within sandbox directory
+    // Check if path is within sandbox directory.
+    //
+    // Canonicalize both sides before comparison so `..` segments and
+    // sibling-directory prefixes do not pass the gate. Raw
+    // `String.startsWith` matched two unintended path classes:
+    //   - `/sandbox/../etc/hostname` (literal `..` in the string starts
+    //     with `/sandbox`; filter then reads the file via the OS, which
+    //     resolves the traversal).
+    //   - `/sandbox-evil/poison.md` (sibling-directory prefix shares the
+    //     leading characters of the sandbox path).
+    // `path.resolve` collapses `..` and normalizes; the `path.sep`
+    // boundary check prevents sibling-directory false-matches.
+    //
+    // Symlink dereference is a related concern not addressed here — see
+    // the follow-up issue.
     const sandboxDir =
       process.env.CONTENT_FILTER_SANDBOX_DIR ??
       process.env.CONTENT_FILTER_SHARED_DIR; // deprecated fallback
-    if (!sandboxDir || !filePath.startsWith(sandboxDir)) {
-      process.exit(0); // not in sandbox — passthrough
+    if (!sandboxDir) {
+      process.exit(0); // no sandbox configured — passthrough
+    }
+    const resolvedSandbox = resolve(sandboxDir);
+    const resolvedPath = resolve(filePath);
+    if (
+      resolvedPath !== resolvedSandbox &&
+      !resolvedPath.startsWith(resolvedSandbox + sep)
+    ) {
+      process.exit(0); // outside sandbox — passthrough
     }
 
     // Check file exists before filtering

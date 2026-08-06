@@ -1,4 +1,30 @@
-import { basename, join } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
+
+/**
+ * Returns true when `candidate` is already inside `sandbox` after canonicalization.
+ *
+ * Raw `String.startsWith(sandbox)` matched two unintended path classes:
+ *   - `..` traversal — `${sandbox}/../etc/hostname` literally starts with
+ *     `${sandbox}`, so a rewrite check would skip rewriting and pass the
+ *     `..` segment through to the OS.
+ *   - sibling-directory prefix — `${sandbox}-evil/poison.md` shares the
+ *     leading characters of `${sandbox}`.
+ *
+ * `path.resolve` collapses `..` and normalizes; the `path.sep` boundary
+ * check prevents sibling-directory false-matches. Same defect class as
+ * the gate fix in hooks/ContentFilter.hook.ts (SF-001).
+ *
+ * Symlink dereference is a related concern not addressed here — see
+ * follow-up issue.
+ */
+function isInsideSandbox(candidate: string, sandbox: string): boolean {
+  const resolvedSandbox = resolve(sandbox);
+  const resolvedCandidate = resolve(candidate);
+  return (
+    resolvedCandidate === resolvedSandbox ||
+    resolvedCandidate.startsWith(resolvedSandbox + sep)
+  );
+}
 import type {
   ParsedCommand,
   EnforcerMode,
@@ -156,7 +182,7 @@ function rewriteClone(
   }
 
   // Destination already inside sandbox
-  if (dest.startsWith(sandboxDir)) {
+  if (isInsideSandbox(dest, sandboxDir)) {
     return {
       rewritten: parsed.raw,
       original: parsed.raw,
@@ -222,7 +248,7 @@ function rewriteOutputFlag(
   const currentPath = tokens[valueIdx]!;
 
   // Already inside sandbox
-  if (currentPath.startsWith(sandboxDir)) {
+  if (isInsideSandbox(currentPath, sandboxDir)) {
     return {
       rewritten: parsed.raw,
       original: parsed.raw,
@@ -275,7 +301,7 @@ function rewriteDirFlag(
   const currentDir = tokens[valueIdx]!;
 
   // Already targeting sandbox
-  if (currentDir.startsWith(sandboxDir)) {
+  if (isInsideSandbox(currentDir, sandboxDir)) {
     return {
       rewritten: parsed.raw,
       original: parsed.raw,

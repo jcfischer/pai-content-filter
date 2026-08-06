@@ -339,3 +339,68 @@ describe("buildHookOutput", () => {
     expect(result!.hookSpecificOutput.updatedInput).toBeUndefined();
   });
 });
+
+// ============================================================
+// Path-traversal bypass in rewriter — security regression
+//
+// Same defect class as SF-001 in hooks/ContentFilter.hook.ts:
+// raw `String.startsWith(sandboxDir)` was used to short-circuit the
+// rewrite when the destination/output/dir target was "already inside
+// sandbox." That short-circuit fired on two unintended path classes:
+//   - `..` traversal — `${sandbox}/../etc` literally starts with
+//     `${sandbox}` so the rewriter would skip rewriting and pass the
+//     `..` through to the OS.
+//   - sibling-directory prefix — `${sandbox}-evil` matches the
+//     leading characters.
+// Both close with the same path.resolve + path.sep boundary check
+// (now `isInsideSandbox` helper inside sandbox-rewriter.ts).
+// ============================================================
+
+describe("sandbox-rewriter — path-traversal bypass (SF-001 follow-up)", () => {
+  test("rewriteCommand: clone destination with `..` traversal is REWRITTEN, not passed through", () => {
+    const traversalDest = `${SANDBOX}/../etc/poison`;
+    const parsed = makeParsed({
+      type: "git-clone",
+      raw: `git clone https://github.com/owner/repo.git ${traversalDest}`,
+      url: "https://github.com/owner/repo.git",
+      destination: traversalDest,
+    });
+    const result = rewriteCommand(parsed, SANDBOX, "rewrite");
+    // If the bypass were unfixed, `traversalDest.startsWith(SANDBOX)` would be true
+    // and the rewriter would treat it as already-in-sandbox (no rewrite).
+    // With the fix, the rewriter recognises it's outside and rewrites.
+    expect(result.changed).toBe(true);
+    expect(result.newPath).not.toBeNull();
+    // The new path must be canonically inside the sandbox.
+    expect(result.newPath!.startsWith(SANDBOX + "/")).toBe(true);
+    expect(result.newPath!.includes("..")).toBe(false);
+  });
+
+  test("rewriteCommand: sibling-directory prefix is REWRITTEN, not passed through", () => {
+    const siblingDest = `${SANDBOX}-evil/poison`;
+    const parsed = makeParsed({
+      type: "git-clone",
+      raw: `git clone https://github.com/owner/repo.git ${siblingDest}`,
+      url: "https://github.com/owner/repo.git",
+      destination: siblingDest,
+    });
+    const result = rewriteCommand(parsed, SANDBOX, "rewrite");
+    expect(result.changed).toBe(true);
+    expect(result.newPath).not.toBeNull();
+    expect(result.newPath!.startsWith(SANDBOX + "/")).toBe(true);
+  });
+
+  test("rewriteCommand: legitimate inside-sandbox destination is NOT rewritten", () => {
+    // Control: confirm the fix didn't break the happy path.
+    const insideDest = `${SANDBOX}/legit-clone`;
+    const parsed = makeParsed({
+      type: "git-clone",
+      raw: `git clone https://github.com/owner/repo.git ${insideDest}`,
+      url: "https://github.com/owner/repo.git",
+      destination: insideDest,
+    });
+    const result = rewriteCommand(parsed, SANDBOX, "rewrite");
+    expect(result.changed).toBe(false);
+    expect(result.rewritten).toBe(parsed.raw);
+  });
+});
