@@ -68,18 +68,25 @@ The security-critical moment occurs when content crosses from Level 2 (shared) t
 
 ### Layer 2: Quarantined Context Sandbox (F-004)
 
-**What it does:** Runs the content-reading agent in an isolated process with restricted capabilities. Even if injected instructions pass Layer 1, the quarantined agent cannot act on them.
+**What it does:** Runs the content-reading agent in a subprocess with a restricted MCP tool set. Tool restriction is enforced inside the subprocess's MCP runtime; the parent does not impose OS-level process isolation. Even if injected instructions pass Layer 1, the quarantined agent's effective tool surface is constrained to the profile's allowlist.
 
 **How it works:**
-- Spawns a separate `k cross-project` process (true process isolation, not just prompt instructions)
-- **Allowed tools:** Read, Glob, Grep, WebFetch (read-only operations)
-- **Denied tools:** Bash, Write, Edit, Email, Calendar, Tana, Finance, and all personal MCP tools
-- **Denied paths:** `~/.claude/skills/CORE/USER/` and all personal context
+- Spawns a separate `k cross-project` subprocess
+- The subprocess's MCP runtime enforces the tool set declared in `config/cross-project-profile.json`
+- **Allowed tools** (from profile): Read, Glob, Grep
+- **Denied tools** (from profile): Bash, Write, Edit, NotebookEdit, Task, Skill
+- **Denied paths** (from profile): `~/.claude/skills/CORE/USER/`
 - **Output:** Only TypedReferences (structured JSON with provenance metadata)
 
-**The CaMeL insight (DeepMind, 2025):** Pattern matching achieves ~99% detection, but 99% is a failing grade when agents run at scale. Architectural isolation is the primary defense — the quarantined agent literally cannot exfiltrate data because it has no tools to do so.
+**The CaMeL insight (DeepMind, 2025):** Pattern matching achieves ~99% detection, but 99% is a failing grade when agents run at scale. MCP-level tool restriction is the architectural defense in this layer — complementary to Layer 1 content filtering, not a replacement for it.
 
 **One-way data flow:** Content flows from quarantine to privileged context via TypedReferences. Never the reverse.
+
+**Limitations (honest scope):**
+- **No OS-level containment.** The subprocess is a vanilla `Bun.spawn` — no namespaces, chroot, env scrubbing, rlimits, seccomp, or `sandbox-exec`. `process.env` is inherited unscrubbed (every operator token in env flows through).
+- **Tool restriction is LLM-honored, not OS-enforced.** The defense relies on the subprocess agent reading the profile and respecting the allowed/denied lists. This is a real architectural improvement over Layer 1 alone, but it is not the same as kernel-enforced isolation.
+- **Within-allowlist exfiltration is possible.** A prompt-injected quarantined agent operating within `Read`/`Glob`/`Grep` could still encode sensitive content into paths it reads, or exfiltrate `process.env` via what it returns. Combine with Layer 1 + Layer 3 for defense-in-depth.
+- **Follow-up work:** True OS-level containment via `bwrap` (Linux) or `sandbox-exec` (macOS) plus env scrubbing is tracked as a separate enhancement.
 
 ### Layer 3: Audit Trail & Accountability (F-002)
 
